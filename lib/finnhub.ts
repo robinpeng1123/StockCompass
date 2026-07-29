@@ -126,3 +126,56 @@ export type FinnhubMetrics = {
 export async function getBasicFinancials(symbol: string): Promise<FinnhubMetrics> {
   return finnhubFetch<FinnhubMetrics>("/stock/metric", { symbol: symbol.toUpperCase(), metric: "all" }, 60 * 60);
 }
+
+export type FinnhubNewsItem = {
+  headline: string;
+  source: string;
+  url: string;
+  datetime: number; // unix seconds
+  summary: string;
+};
+
+function toDateStr(d: Date) {
+  return d.toISOString().slice(0, 10);
+}
+
+export async function getCompanyNews(symbol: string, days = 21): Promise<FinnhubNewsItem[]> {
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 86_400_000);
+  const raw = await finnhubFetch<any[]>(
+    "/company-news",
+    { symbol: symbol.toUpperCase(), from: toDateStr(from), to: toDateStr(to) },
+    300
+  );
+  return raw
+    .filter((n) => n.headline && n.url)
+    .sort((a, b) => b.datetime - a.datetime)
+    .map((n) => ({ headline: n.headline, source: n.source ?? "Unknown source", url: n.url, datetime: n.datetime, summary: n.summary ?? "" }));
+}
+
+export type FinnhubEarning = {
+  period: string; // YYYY-MM-DD
+  quarter: number;
+  year: number;
+  actual: number | null;
+  estimate: number | null;
+  surprisePercent: number | null;
+};
+
+export async function getEarnings(symbol: string): Promise<FinnhubEarning[]> {
+  const raw = await finnhubFetch<{ earningsCalendar?: any[] }>("/stock/earnings", { symbol: symbol.toUpperCase() }, 3600).catch(
+    () => ({ earningsCalendar: [] })
+  );
+  // Finnhub's /stock/earnings actually returns a bare array, not {earningsCalendar}; handle both shapes defensively.
+  const list = Array.isArray(raw) ? raw : raw.earningsCalendar ?? [];
+  return list
+    .map((e: any) => ({
+      period: e.period,
+      quarter: e.quarter,
+      year: e.year,
+      actual: e.actual ?? null,
+      estimate: e.estimate ?? null,
+      surprisePercent: e.surprisePercent ?? null,
+    }))
+    .sort((a, b) => (a.period < b.period ? 1 : -1));
+}

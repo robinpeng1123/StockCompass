@@ -9,17 +9,28 @@ const DIRECTION_STATUS = {
 } as const;
 
 const DIRECTION_LABEL = {
-  bullish: "Bullish signal",
-  bearish: "Bearish signal",
-  neutral: "Neutral / wait-and-see",
+  bullish: "Buy signal",
+  bearish: "Sell signal",
+  neutral: "Wait signal",
 } as const;
+
+const VERDICT_WORD = {
+  bullish: "Buy",
+  bearish: "Sell",
+  neutral: "Wait",
+} as const;
+
+function verdictFor(pattern: Pattern) {
+  const base = VERDICT_WORD[pattern.direction];
+  return pattern.confidencePct > 80 ? `Definitely ${base}` : base;
+}
 
 export function PatternCard({ pattern, ticker }: { pattern: Pattern; ticker: string }) {
   const status = DIRECTION_STATUS[pattern.direction];
   return (
     <Card glow="cyan">
       <CardHeader
-        eyebrow={`${ticker} · Detected ${pattern.detectedOn}`}
+        eyebrow={`${ticker} · ${pattern.name} · Detected ${pattern.detectedOn}`}
         title="AI Pattern Detection"
         icon={<PatternIcon />}
         action={<Badge status={status}>{DIRECTION_LABEL[pattern.direction]}</Badge>}
@@ -27,8 +38,10 @@ export function PatternCard({ pattern, ticker }: { pattern: Pattern; ticker: str
 
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
         <div>
-          <div className="text-xl font-semibold text-ink-primary">{pattern.name}</div>
-          <div className="text-xs text-ink-muted">Chart pattern</div>
+          <div className={`text-2xl font-bold ${status === "good" ? "text-status-good" : status === "critical" ? "text-status-critical" : "text-status-warning"}`}>
+            {verdictFor(pattern)}
+          </div>
+          <div className="text-xs text-ink-muted">AI recommendation</div>
         </div>
         <div className="flex items-center gap-3">
           <ConfidenceRing pct={pattern.confidencePct} />
@@ -48,6 +61,10 @@ export function PatternCard({ pattern, ticker }: { pattern: Pattern; ticker: str
         <HistoryIcon />
         <p className="text-sm leading-relaxed text-ink-primary">{pattern.historicalStat}</p>
       </div>
+
+      <p className="mt-3 text-[11px] leading-relaxed text-ink-muted">
+        A heuristic read of the current chart pattern, not financial advice — treat it as one input, not an instruction.
+      </p>
     </Card>
   );
 }

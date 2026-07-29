@@ -11,17 +11,7 @@ const SCENARIO_COLOR: Record<Scenario["label"], string> = {
   Bearish: "#d03b3b",
 };
 
-export function ScenarioSimulator({
-  ticker,
-  scenarios,
-  history,
-  price,
-}: {
-  ticker: string;
-  scenarios: Scenario[];
-  history: number[];
-  price: number;
-}) {
+export function ScenarioSimulator({ ticker, scenarios }: { ticker: string; scenarios: Scenario[] }) {
   const allLows = scenarios.map((s) => s.rangeLowPct);
   const allHighs = scenarios.map((s) => s.rangeHighPct);
   const min = Math.min(0, ...allLows) - 2;
@@ -29,7 +19,6 @@ export function ScenarioSimulator({
   const span = max - min;
   const pctToX = (pct: number) => ((pct - min) / span) * 100;
   const zeroX = pctToX(0);
-  const trendUp = history.length > 1 ? history[history.length - 1] >= history[0] : true;
 
   return (
     <Card>
@@ -41,7 +30,7 @@ export function ScenarioSimulator({
       />
 
       <div className="mb-6">
-        <ProjectionChart history={history} price={price} scenarios={scenarios} color={trendUp ? "#0ca30c" : "#d03b3b"} />
+        <ProjectionChart ticker={ticker} scenarios={scenarios} />
       </div>
 
       {/* Combined probability — single stacked bar, part-to-whole across the three scenarios */}

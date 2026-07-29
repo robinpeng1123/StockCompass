@@ -34,6 +34,16 @@ export function statusForMetric(value: number, invert = false) {
   return { color: "status-critical", label: "High" } as const;
 }
 
+export function formatTimeAgo(unixSeconds: number) {
+  const diffMs = Date.now() - unixSeconds * 1000;
+  const minutes = Math.round(diffMs / 60_000);
+  if (minutes < 60) return `${Math.max(1, minutes)}m ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.round(hours / 24);
+  return `${days}d ago`;
+}
+
 export function scoreLabel(score: number) {
   if (score >= 80) return "Strong";
   if (score >= 60) return "Solid";

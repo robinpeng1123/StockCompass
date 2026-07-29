@@ -70,7 +70,7 @@ export default async function DashboardPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ScenarioSimulator ticker={spotlight.ticker} scenarios={scenarios} history={spotlight.history} price={spotlight.price} />
+        <ScenarioSimulator ticker={spotlight.ticker} scenarios={scenarios} />
         <MarketStory ticker={spotlight.ticker} events={story} />
       </div>
 

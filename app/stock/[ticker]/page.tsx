@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPattern, getScenarios, getStory } from "@/lib/mockData";
 import { getLiveStock } from "@/lib/liveStock";
-import { FinnhubError } from "@/lib/finnhub";
+import { getCompanyNews, getEarnings, FinnhubError } from "@/lib/finnhub";
 import { formatMarketCap } from "@/lib/utils";
 import { PriceChart } from "@/components/ui/PriceChart";
 import { LiveStockHeaderPrice } from "@/components/ui/LiveStockHeaderPrice";
@@ -10,6 +10,9 @@ import { PatternCard } from "@/components/PatternCard";
 import { RiskMeter } from "@/components/RiskMeter";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { MarketStory } from "@/components/MarketStory";
+import { StockNews } from "@/components/StockNews";
+import { StockEarnings } from "@/components/StockEarnings";
+import { CoachSection } from "@/components/CoachSection";
 import { Card } from "@/components/ui/Card";
 
 export const dynamic = "force-dynamic";
@@ -25,14 +28,26 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
     throw err;
   }
 
-  const up = stock.changePct >= 0;
+  const [news, earnings] = await Promise.all([
+    getCompanyNews(stock.ticker).catch(() => []),
+    getEarnings(stock.ticker).catch(() => []),
+  ]);
+
   const pattern = getPattern(stock.ticker);
   const scenarios = getScenarios(stock.ticker);
   const story = getStory(stock.ticker);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
-      <Link href="/screener" className="text-xs text-ink-muted hover:text-ink-primary">
+      <CoachSection>
+        <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <PatternCard pattern={pattern} ticker={stock.ticker} />
+          <RiskMeter stock={stock} />
+        </div>
+      </CoachSection>
+
+      <Link href="/screener" className="inline-block text-xs text-ink-muted hover:text-ink-primary">
         ← Back to search
       </Link>
 
@@ -53,7 +68,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
       </div>
 
       <Card>
-        <PriceChart data={stock.history} color={up ? "#0ca30c" : "#d03b3b"} />
+        <PriceChart ticker={stock.ticker} />
         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4 sm:grid-cols-4">
           <Fact label="Sector" value={stock.sector} />
           <Fact label="Market cap" value={stock.marketCapB ? formatMarketCap(stock.marketCapB) : "N/A"} />
@@ -63,14 +78,11 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
       </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <PatternCard pattern={pattern} ticker={stock.ticker} />
-        <RiskMeter stock={stock} />
+        <StockNews ticker={stock.ticker} news={news} />
+        <StockEarnings ticker={stock.ticker} earnings={earnings} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} history={stock.history} price={stock.price} />
-        <MarketStory ticker={stock.ticker} events={story} />
-      </div>
+      <MarketStory ticker={stock.ticker} events={story} />
     </div>
   );
 }
