@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { useId, useRef, useState } from "react";
 import { Scenario } from "@/lib/types";
 import { formatPrice, signed } from "@/lib/utils";
 
@@ -8,7 +8,8 @@ import { formatPrice, signed } from "@/lib/utils";
  * Recent price history as a solid line, followed by a dashed gray line
  * projecting forward to the probability-weighted expected price implied by
  * the scenario table below it — actual vs. projected gets its own legend
- * since two series now share the chart.
+ * since two series now share the chart. Hover shows the value at any point,
+ * on either side of "Today".
  */
 export function ProjectionChart({
   history,
@@ -22,6 +23,9 @@ export function ProjectionChart({
   color: string;
 }) {
   const id = useId();
+  const svgRef = useRef<SVGSVGElement>(null);
+  const [hoverX, setHoverX] = useState<number | null>(null);
+
   const width = 640;
   const height = 180;
   const padY = 16;
@@ -55,29 +59,82 @@ export function ProjectionChart({
 
   const todayX = lastX;
 
+  function handleMove(e: React.PointerEvent<SVGSVGElement>) {
+    const rect = svgRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const relX = ((e.clientX - rect.left) / rect.width) * width;
+    setHoverX(Math.max(padX, Math.min(projX, relX)));
+  }
+
+  let hover: { x: number; y: number; value: number; label: string; isProjected: boolean } | null = null;
+  if (hoverX !== null) {
+    if (hoverX <= lastX) {
+      const idx = Math.max(0, Math.min(hist.length - 1, Math.round(((hoverX - padX) / usableW) * totalSlots)));
+      hover = { x: histPoints[idx][0], y: histPoints[idx][1], value: hist[idx], label: `Session ${idx + 1} of ${hist.length}`, isProjected: false };
+    } else {
+      const f = Math.max(0, Math.min(1, (hoverX - lastX) / (projX - lastX)));
+      hover = {
+        x: hoverX,
+        y: lastY + f * (projY - lastY),
+        value: price + f * (projectedPrice - price),
+        label: "Projected estimate",
+        isProjected: true,
+      };
+    }
+  }
+
   return (
     <div>
-      <svg viewBox={`0 0 ${width} ${height}`} width="100%" height={height} role="img" aria-label="Recent price history with a probability-weighted forward projection">
-        <defs>
-          <linearGradient id={`proj-fill-${id}`} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity={0.14} />
-            <stop offset="100%" stopColor={color} stopOpacity={0} />
-          </linearGradient>
-        </defs>
+      <div className="relative">
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${width} ${height}`}
+          width="100%"
+          height={height}
+          className="overflow-visible"
+          onPointerMove={handleMove}
+          onPointerLeave={() => setHoverX(null)}
+          role="img"
+          aria-label="Recent price history with a probability-weighted forward projection, hover for detail"
+        >
+          <defs>
+            <linearGradient id={`proj-fill-${id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.14} />
+              <stop offset="100%" stopColor={color} stopOpacity={0} />
+            </linearGradient>
+          </defs>
 
-        {/* "today" boundary between actual and projected */}
-        <line x1={todayX} x2={todayX} y1={padY} y2={height - padY} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
-        <text x={todayX} y={padY - 4} textAnchor="middle" fontSize="10" fill="#5b6580">
-          Today
-        </text>
+          {/* "today" boundary between actual and projected */}
+          <line x1={todayX} x2={todayX} y1={padY} y2={height - padY} stroke="rgba(255,255,255,0.15)" strokeWidth={1} />
+          <text x={todayX} y={padY - 4} textAnchor="middle" fontSize="10" fill="#5b6580">
+            Today
+          </text>
 
-        <path d={`${histPath} L${lastX},${height - padY} L${padX},${height - padY} Z`} fill={`url(#proj-fill-${id})`} stroke="none" />
-        <path d={histPath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+          <path d={`${histPath} L${lastX},${height - padY} L${padX},${height - padY} Z`} fill={`url(#proj-fill-${id})`} stroke="none" />
+          <path d={histPath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
-        <path d={projPath} fill="none" stroke="#5b6580" strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" />
-        <circle cx={lastX} cy={lastY} r={4} fill={color} stroke="#10141f" strokeWidth={2} />
-        <circle cx={projX} cy={projY} r={4} fill="#5b6580" stroke="#10141f" strokeWidth={2} />
-      </svg>
+          <path d={projPath} fill="none" stroke="#5b6580" strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" />
+          <circle cx={lastX} cy={lastY} r={4} fill={color} stroke="#10141f" strokeWidth={2} />
+          <circle cx={projX} cy={projY} r={4} fill="#5b6580" stroke="#10141f" strokeWidth={2} />
+
+          {hover && (
+            <>
+              <line x1={hover.x} x2={hover.x} y1={padY} y2={height - padY} stroke="rgba(255,255,255,0.25)" strokeWidth={1} />
+              <circle cx={hover.x} cy={hover.y} r={4} fill={hover.isProjected ? "#5b6580" : color} stroke="#10141f" strokeWidth={2} />
+            </>
+          )}
+        </svg>
+
+        {hover && (
+          <div
+            className="pointer-events-none absolute top-0 -translate-x-1/2 rounded-lg border border-white/10 bg-surface-raised px-2.5 py-1.5 text-xs shadow-lg"
+            style={{ left: `${(hover.x / width) * 100}%` }}
+          >
+            <div className="font-semibold text-ink-primary">{formatPrice(hover.value)}</div>
+            <div className="text-[10px] text-ink-muted">{hover.label}</div>
+          </div>
+        )}
+      </div>
 
       <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-4 text-[11px] text-ink-secondary">
