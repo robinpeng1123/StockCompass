@@ -68,7 +68,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2">
-        <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} />
+        <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} history={stock.history} price={stock.price} />
         <MarketStory ticker={stock.ticker} events={story} />
       </div>
     </div>

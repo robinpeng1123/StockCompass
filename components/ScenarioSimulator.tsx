@@ -3,6 +3,7 @@
 import { Scenario } from "@/lib/types";
 import { Card, CardHeader } from "./ui/Card";
 import { signed } from "@/lib/utils";
+import { ProjectionChart } from "./ui/ProjectionChart";
 
 const SCENARIO_COLOR: Record<Scenario["label"], string> = {
   Bullish: "#0ca30c",
@@ -10,7 +11,17 @@ const SCENARIO_COLOR: Record<Scenario["label"], string> = {
   Bearish: "#d03b3b",
 };
 
-export function ScenarioSimulator({ ticker, scenarios }: { ticker: string; scenarios: Scenario[] }) {
+export function ScenarioSimulator({
+  ticker,
+  scenarios,
+  history,
+  price,
+}: {
+  ticker: string;
+  scenarios: Scenario[];
+  history: number[];
+  price: number;
+}) {
   const allLows = scenarios.map((s) => s.rangeLowPct);
   const allHighs = scenarios.map((s) => s.rangeHighPct);
   const min = Math.min(0, ...allLows) - 2;
@@ -18,6 +29,7 @@ export function ScenarioSimulator({ ticker, scenarios }: { ticker: string; scena
   const span = max - min;
   const pctToX = (pct: number) => ((pct - min) / span) * 100;
   const zeroX = pctToX(0);
+  const trendUp = history.length > 1 ? history[history.length - 1] >= history[0] : true;
 
   return (
     <Card>
@@ -27,6 +39,10 @@ export function ScenarioSimulator({ ticker, scenarios }: { ticker: string; scena
         icon={<DiceIcon />}
         action={<span className="text-[11px] text-ink-muted">Scenario analysis, not a forecast</span>}
       />
+
+      <div className="mb-6">
+        <ProjectionChart history={history} price={price} scenarios={scenarios} color={trendUp ? "#0ca30c" : "#d03b3b"} />
+      </div>
 
       {/* Combined probability — single stacked bar, part-to-whole across the three scenarios */}
       <div className="mb-1.5 flex text-[11px] text-ink-muted">
