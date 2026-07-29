@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getPattern, getScenarios, getStory } from "@/lib/mockData";
 import { getLiveStock } from "@/lib/liveStock";
 import { getLiveIndices } from "@/lib/liveIndices";
+import { getSpotlightTicker } from "@/lib/spotlight";
 import { StatTile } from "@/components/ui/StatTile";
 import { NaturalLanguageSearch } from "@/components/NaturalLanguageSearch";
 import { FeatureStrip } from "@/components/FeatureStrip";
@@ -14,15 +15,14 @@ import { TrendingNews } from "@/components/TrendingNews";
 import { PortfolioCopilot } from "@/components/PortfolioCopilot";
 import { Card, CardHeader } from "@/components/ui/Card";
 
-const SPOTLIGHT_TICKER = "NVDA";
-
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [spotlight, indices] = await Promise.all([getLiveStock(SPOTLIGHT_TICKER), getLiveIndices()]);
-  const pattern = getPattern(SPOTLIGHT_TICKER);
-  const scenarios = getScenarios(SPOTLIGHT_TICKER);
-  const story = getStory(SPOTLIGHT_TICKER);
+  const spotlightTicker = getSpotlightTicker();
+  const [spotlight, indices] = await Promise.all([getLiveStock(spotlightTicker), getLiveIndices()]);
+  const pattern = getPattern(spotlightTicker);
+  const scenarios = getScenarios(spotlightTicker);
+  const story = getStory(spotlightTicker);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
