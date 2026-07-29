@@ -48,18 +48,41 @@ export async function getAllUSSymbols(): Promise<FinnhubSymbol[]> {
   return data;
 }
 
+function escapeRegex(s: string) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Ranks a candidate against the query so the stock someone's actually
+ * looking for — an exact ticker, or a company whose name starts with what
+ * they typed — always outranks an unrelated ticker that merely starts with
+ * the same letters, or a company that just mentions the query mid-name.
+ */
+function matchScore(s: FinnhubSymbol, q: string): number {
+  const sym = s.symbol.toUpperCase();
+  const desc = s.description.toUpperCase();
+
+  if (sym === q) return 100;
+  if (desc === q) return 95;
+  if (sym.startsWith(q)) return 90 - Math.min(20, sym.length - q.length);
+  if (desc.startsWith(q)) return 70;
+  if (new RegExp(`\\b${escapeRegex(q)}`).test(desc)) return 60; // query starts a word within the name
+  if (sym.includes(q)) return 40;
+  if (desc.includes(q)) return 20;
+  return 0;
+}
+
 export async function searchUSSymbols(query: string, limit = 20): Promise<FinnhubSymbol[]> {
   const all = await getAllUSSymbols();
   const q = query.trim().toUpperCase();
   if (!q) return [];
-  const starts: FinnhubSymbol[] = [];
-  const contains: FinnhubSymbol[] = [];
-  for (const s of all) {
-    if (s.symbol.toUpperCase().startsWith(q)) starts.push(s);
-    else if (s.symbol.toUpperCase().includes(q) || s.description.toUpperCase().includes(q)) contains.push(s);
-    if (starts.length >= limit) break;
-  }
-  return [...starts, ...contains].slice(0, limit);
+
+  const scored = all
+    .map((s) => ({ s, score: matchScore(s, q) }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || a.s.symbol.length - b.s.symbol.length || a.s.symbol.localeCompare(b.s.symbol));
+
+  return scored.slice(0, limit).map((x) => x.s);
 }
 
 export type FinnhubQuote = {
