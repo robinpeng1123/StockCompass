@@ -3,6 +3,7 @@ export type Stock = {
   name: string;
   sector: string;
   price: number;
+  prevClose: number;
   changePct: number;
   marketCapB: number;
   peRatio: number | null;
@@ -14,6 +15,8 @@ export type Stock = {
   volatility: number; // 0-100, higher = choppier
   tags: string[]; // used by the NL screener ("ai", "dividend", "new-high", ...)
   blurb: string;
+  asOf?: number; // unix ms of the underlying quote, when sourced live
+  curated?: boolean; // false when the ticker has no hand-curated tags/blurb (full-universe fallback)
 };
 
 export type Pattern = {
@@ -52,11 +55,8 @@ export type StoryEvent = {
 
 export type Holding = {
   ticker: string;
-  name: string;
-  sector: string;
   shares: number;
   costBasis: number;
-  price: number;
 };
 
 export type CoachTip = {

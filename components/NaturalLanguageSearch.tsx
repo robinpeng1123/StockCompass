@@ -1,27 +1,75 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { runScreen, EXAMPLE_QUERIES, ScreenResult } from "@/lib/nlScreener";
+import { useEffect, useState } from "react";
+import { runScreen, EXAMPLE_QUERIES } from "@/lib/nlScreener";
+import { Stock } from "@/lib/types";
 import { StockCard } from "./StockCard";
 import { Badge } from "./ui/Badge";
 
+type Status = "idle" | "loading-universe" | "searching" | "done" | "error";
+
 export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }) {
   const [query, setQuery] = useState("");
-  const [result, setResult] = useState<ScreenResult | null>(null);
-  const [thinking, setThinking] = useState(false);
-  const [, startTransition] = useTransition();
+  const [universe, setUniverse] = useState<Stock[] | null>(null);
+  const [criteria, setCriteria] = useState<string[]>([]);
+  const [results, setResults] = useState<Stock[]>([]);
+  const [directMatch, setDirectMatch] = useState(false);
+  const [status, setStatus] = useState<Status>("idle");
+  const [error, setError] = useState<string | null>(null);
 
-  function runQuery(q: string) {
+  useEffect(() => {
+    fetch("/api/universe")
+      .then((r) => r.json())
+      .then((data) => setUniverse(data.stocks ?? []))
+      .catch(() => setUniverse([]));
+  }, []);
+
+  async function doSearch(q: string) {
     setQuery(q);
-    setThinking(true);
-    setResult(null);
-    // Small delay sells the "AI is translating this" moment — screen itself is instant.
-    window.setTimeout(() => {
-      startTransition(() => {
-        setResult(runScreen(q));
-        setThinking(false);
-      });
-    }, 450);
+    setStatus("searching");
+    setError(null);
+
+    try {
+      // Tier 1: does this look like a direct company/ticker search? Check the
+      // full ~6,000-ticker US directory first, so typing an actual name wins.
+      const symRes = await fetch(`/api/symbols?q=${encodeURIComponent(q)}`).then((r) => r.json());
+      const symbolMatches: { symbol: string; description: string }[] = symRes.results ?? [];
+
+      if (symbolMatches.length > 0) {
+        const top = symbolMatches.slice(0, 6);
+        const stocks = await Promise.all(
+          top.map((m) =>
+            fetch(`/api/stock/${m.symbol}`)
+              .then((r) => r.json())
+              .then((d) => d.stock as Stock | null)
+              .catch(() => null)
+          )
+        );
+        const found = stocks.filter((s): s is Stock => !!s);
+        if (found.length > 0) {
+          setCriteria([`Matches for "${q}" across all US-listed stocks`]);
+          setResults(found);
+          setDirectMatch(true);
+          setStatus("done");
+          return;
+        }
+      }
+
+      // Tier 2: fall back to the thematic screener over the curated universe.
+      const u = universe ?? (await fetch("/api/universe").then((r) => r.json()).then((d) => d.stocks ?? []));
+      const result = runScreen(q, u);
+      setCriteria(result.criteria);
+      setResults(result.results);
+      setDirectMatch(false);
+      setStatus("done");
+    } catch {
+      setError("Live market data is temporarily unavailable — try again in a moment.");
+      setStatus("error");
+    }
+  }
+
+  function runExampleQuery(q: string) {
+    doSearch(q);
   }
 
   return (
@@ -29,7 +77,7 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (query.trim()) runQuery(query);
+          if (query.trim()) doSearch(query);
         }}
         className="relative"
       >
@@ -46,7 +94,7 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder='Try "cheap AI companies" or "stocks making new highs"'
+          placeholder='Try "cheap AI companies", "Boeing", or "AAPL"'
           className="w-full rounded-2xl border border-white/10 bg-white/[0.03] py-3.5 pl-11 pr-28 text-sm text-ink-primary placeholder:text-ink-muted focus:border-accent-cyan/50 focus:outline-none focus:ring-2 focus:ring-accent-cyan/20"
         />
         <button
@@ -61,7 +109,7 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
         {EXAMPLE_QUERIES.map((ex) => (
           <button
             key={ex}
-            onClick={() => runQuery(ex)}
+            onClick={() => runExampleQuery(ex)}
             className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs text-ink-secondary transition-colors hover:border-accent-cyan/40 hover:text-ink-primary"
           >
             {ex}
@@ -69,28 +117,30 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
         ))}
       </div>
 
-      {thinking && (
+      {status === "searching" && (
         <div className="mt-6 flex items-center gap-2 text-sm text-ink-secondary">
           <span className="h-2 w-2 animate-pulse-soft rounded-full bg-accent-cyan" />
-          Translating your request into a stock screen…
+          Searching live US market data…
         </div>
       )}
 
-      {result && !thinking && (
+      {status === "error" && <p className="mt-6 text-sm text-status-critical">{error}</p>}
+
+      {status === "done" && (
         <div className="mt-6">
           <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="text-xs text-ink-muted">AI read this as:</span>
-            {result.criteria.map((c) => (
+            <span className="text-xs text-ink-muted">{directMatch ? "Direct match:" : "AI read this as:"}</span>
+            {criteria.map((c) => (
               <Badge key={c} status="neutral">
                 {c}
               </Badge>
             ))}
           </div>
-          {result.results.length === 0 ? (
-            <p className="text-sm text-ink-muted">No matches in the sample universe — try a different phrase.</p>
+          {results.length === 0 ? (
+            <p className="text-sm text-ink-muted">No matches found — try a different phrase, company name, or ticker.</p>
           ) : (
             <div className={`grid gap-3 ${compact ? "sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-3"}`}>
-              {result.results.map((s) => (
+              {results.map((s) => (
                 <StockCard key={s.ticker} stock={s} />
               ))}
             </div>

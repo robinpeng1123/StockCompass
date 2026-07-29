@@ -5,8 +5,11 @@ import { HoldingsTable } from "@/components/HoldingsTable";
 import { computePortfolio } from "@/lib/portfolio";
 import { formatPrice, signed } from "@/lib/utils";
 
-export default function PortfolioPage() {
-  const { totalValue, totalGainUSD, totalGainPct, sectors, topSector } = computePortfolio();
+export const dynamic = "force-dynamic";
+
+export default async function PortfolioPage() {
+  const portfolio = await computePortfolio();
+  const { totalValue, totalGainUSD, totalGainPct, sectors, topSector, holdings } = portfolio;
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -43,7 +46,7 @@ export default function PortfolioPage() {
         </Card>
       </div>
 
-      <PortfolioCopilot />
+      <PortfolioCopilot data={portfolio} />
 
       <Card>
         <CardHeader eyebrow="Allocation" title="Sector concentration" />
@@ -52,7 +55,7 @@ export default function PortfolioPage() {
 
       <Card>
         <CardHeader eyebrow="Holdings" title="All positions" />
-        <HoldingsTable />
+        <HoldingsTable holdings={holdings} />
       </Card>
     </div>
   );

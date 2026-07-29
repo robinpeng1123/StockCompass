@@ -1,22 +1,29 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPattern, getScenarios, getStock, getStory, STOCKS } from "@/lib/mockData";
-import { formatMarketCap, formatPrice, signed } from "@/lib/utils";
+import { getPattern, getScenarios, getStory } from "@/lib/mockData";
+import { getLiveStock } from "@/lib/liveStock";
+import { FinnhubError } from "@/lib/finnhub";
+import { formatMarketCap } from "@/lib/utils";
 import { PriceChart } from "@/components/ui/PriceChart";
+import { LiveStockHeaderPrice } from "@/components/ui/LiveStockHeaderPrice";
 import { PatternCard } from "@/components/PatternCard";
 import { RiskMeter } from "@/components/RiskMeter";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { MarketStory } from "@/components/MarketStory";
 import { Card } from "@/components/ui/Card";
 
-export function generateStaticParams() {
-  return STOCKS.map((s) => ({ ticker: s.ticker }));
-}
+export const dynamic = "force-dynamic";
 
 export default async function StockDetailPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  const stock = getStock(ticker);
-  if (!stock) notFound();
+
+  let stock;
+  try {
+    stock = await getLiveStock(ticker);
+  } catch (err) {
+    if (err instanceof FinnhubError && (err.status === 404 || err.status === 400)) notFound();
+    throw err;
+  }
 
   const up = stock.changePct >= 0;
   const pattern = getPattern(stock.ticker);
@@ -34,22 +41,22 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-semibold tracking-tight text-ink-primary">{stock.ticker}</h1>
             <span className="text-sm text-ink-muted">{stock.name}</span>
+            {!stock.curated && (
+              <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] font-medium text-ink-muted">
+                Full-market listing
+              </span>
+            )}
           </div>
           <p className="mt-1 max-w-xl text-sm text-ink-secondary">{stock.blurb}</p>
         </div>
-        <div className="text-right">
-          <div className="text-3xl font-semibold tabular-nums text-ink-primary">{formatPrice(stock.price)}</div>
-          <div className={`text-sm font-medium ${up ? "text-status-good" : "text-status-critical"}`}>
-            {signed(stock.changePct)}% today
-          </div>
-        </div>
+        <LiveStockHeaderPrice ticker={stock.ticker} price={stock.price} prevClose={stock.prevClose} changePct={stock.changePct} />
       </div>
 
       <Card>
         <PriceChart data={stock.history} color={up ? "#0ca30c" : "#d03b3b"} />
         <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4 sm:grid-cols-4">
           <Fact label="Sector" value={stock.sector} />
-          <Fact label="Market cap" value={formatMarketCap(stock.marketCapB)} />
+          <Fact label="Market cap" value={stock.marketCapB ? formatMarketCap(stock.marketCapB) : "N/A"} />
           <Fact label="P/E ratio" value={stock.peRatio ? stock.peRatio.toFixed(1) : "N/A"} />
           <Fact label="Dividend yield" value={`${stock.dividendYieldPct.toFixed(2)}%`} />
         </div>

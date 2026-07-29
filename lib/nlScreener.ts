@@ -1,4 +1,3 @@
-import { STOCKS } from "./mockData";
 import { Stock } from "./types";
 
 export type ScreenResult = {
@@ -10,11 +9,12 @@ export type ScreenResult = {
  * A small, deterministic rule-based stand-in for an LLM query→screen
  * translation. It reads like natural-language understanding to the user
  * ("cheap AI companies" -> a P/E + sector filter) without calling any model.
+ * Operates over whatever live universe snapshot the caller passes in.
  */
-export function runScreen(rawQuery: string): ScreenResult {
+export function runScreen(rawQuery: string, universe: Stock[]): ScreenResult {
   const q = rawQuery.trim().toLowerCase();
   const criteria: string[] = [];
-  let pool = [...STOCKS];
+  let pool = [...universe];
 
   if (!q) {
     return { criteria: ["Top AI-rated stocks"], results: pool.sort((a, b) => b.aiScore - a.aiScore).slice(0, 6) };
@@ -24,7 +24,7 @@ export function runScreen(rawQuery: string): ScreenResult {
   const similarMatch = q.match(/similar to ([a-z0-9. ]+)/);
   if (similarMatch) {
     const needle = similarMatch[1].trim();
-    const target = STOCKS.find(
+    const target = universe.find(
       (s) => s.name.toLowerCase().includes(needle) || s.ticker.toLowerCase() === needle || needle.includes(s.ticker.toLowerCase())
     );
     if (target) {
@@ -112,6 +112,12 @@ export function runScreen(rawQuery: string): ScreenResult {
     reit: "Real Estate",
     staples: "Consumer Staples",
     consumer: "Consumer Technology",
+    bank: "Financials",
+    financ: "Financials",
+    media: "Media & Entertainment",
+    streaming: "Media & Entertainment",
+    defense: "Industrials",
+    industrial: "Industrials",
   };
   for (const [kw, sector] of Object.entries(sectorKeywords)) {
     if (q.includes(kw)) {
@@ -123,7 +129,7 @@ export function runScreen(rawQuery: string): ScreenResult {
 
   if (criteria.length === 0) {
     criteria.push("No strong filters detected — showing top AI-rated matches");
-    pool = [...STOCKS];
+    pool = [...universe];
   }
 
   pool = [...pool].sort((a, b) => b.aiScore - a.aiScore);

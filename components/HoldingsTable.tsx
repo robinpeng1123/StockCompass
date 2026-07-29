@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { computePortfolio } from "@/lib/portfolio";
-import { formatPrice, signed } from "@/lib/utils";
 import { sectorColor } from "@/lib/sectorColors";
+import { LiveHoldingCells } from "./ui/LiveHoldingCells";
 
-export function HoldingsTable() {
-  const { holdings } = computePortfolio();
+type PortfolioData = Awaited<ReturnType<typeof computePortfolio>>;
+
+export async function HoldingsTable({ holdings: holdingsProp }: { holdings?: PortfolioData["holdings"] }) {
+  const holdings = holdingsProp ?? (await computePortfolio()).holdings;
   return (
     <div className="overflow-x-auto">
       <table className="w-full min-w-[640px] text-sm">
@@ -34,17 +36,7 @@ export function HoldingsTable() {
                 </span>
               </td>
               <td className="py-2.5 pr-3 text-right tabular-nums text-ink-secondary">{h.shares}</td>
-              <td className="py-2.5 pr-3 text-right tabular-nums text-ink-secondary">{formatPrice(h.price)}</td>
-              <td className="py-2.5 pr-3 text-right font-medium tabular-nums text-ink-primary">
-                {formatPrice(h.marketValue)}
-              </td>
-              <td
-                className={`py-2.5 pl-3 text-right font-medium tabular-nums ${
-                  h.gainPct >= 0 ? "text-status-good" : "text-status-critical"
-                }`}
-              >
-                {signed(h.gainPct, 1)}%
-              </td>
+              <LiveHoldingCells ticker={h.ticker} shares={h.shares} costBasis={h.costBasis} price={h.price} prevClose={h.stock.prevClose} />
             </tr>
           ))}
         </tbody>

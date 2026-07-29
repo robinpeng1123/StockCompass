@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { getPattern, getScenarios, getStock, getStory, INDICES } from "@/lib/mockData";
+import { getPattern, getScenarios, getStory } from "@/lib/mockData";
+import { getLiveStock } from "@/lib/liveStock";
+import { getLiveIndices } from "@/lib/liveIndices";
 import { StatTile } from "@/components/ui/StatTile";
 import { NaturalLanguageSearch } from "@/components/NaturalLanguageSearch";
 import { FeatureStrip } from "@/components/FeatureStrip";
@@ -14,8 +16,10 @@ import { Card, CardHeader } from "@/components/ui/Card";
 
 const SPOTLIGHT_TICKER = "NVDA";
 
-export default function DashboardPage() {
-  const spotlight = getStock(SPOTLIGHT_TICKER)!;
+export const dynamic = "force-dynamic";
+
+export default async function DashboardPage() {
+  const [spotlight, indices] = await Promise.all([getLiveStock(SPOTLIGHT_TICKER), getLiveIndices()]);
   const pattern = getPattern(SPOTLIGHT_TICKER);
   const scenarios = getScenarios(SPOTLIGHT_TICKER);
   const story = getStory(SPOTLIGHT_TICKER);
@@ -34,8 +38,16 @@ export default function DashboardPage() {
       <FeatureStrip />
 
       <div className="grid gap-4 sm:grid-cols-3">
-        {INDICES.map((idx) => (
-          <StatTile key={idx.label} label={idx.label} value={idx.value.toLocaleString()} deltaPct={idx.changePct} trend={idx.history} />
+        {indices.map((idx) => (
+          <StatTile
+            key={idx.symbol}
+            label={idx.label}
+            ticker={idx.symbol}
+            value={idx.value}
+            prevClose={idx.prevClose}
+            deltaPct={idx.changePct}
+            trend={idx.history}
+          />
         ))}
       </div>
 

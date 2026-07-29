@@ -2,8 +2,10 @@ import { computePortfolio } from "@/lib/portfolio";
 import { Card, CardHeader } from "./ui/Card";
 import { Badge } from "./ui/Badge";
 
-export function PortfolioCopilot({ compact = false }: { compact?: boolean }) {
-  const { topSector, correlatedPct, avgRisk, avgVolatility, totalGainPct } = computePortfolio();
+type PortfolioData = Awaited<ReturnType<typeof computePortfolio>>;
+
+export async function PortfolioCopilot({ compact = false, data }: { compact?: boolean; data?: PortfolioData }) {
+  const { topSector, correlatedPct, avgRisk, avgVolatility, totalGainPct } = data ?? (await computePortfolio());
 
   const concentrationLevel = topSector.pct >= 40 ? "critical" : topSector.pct >= 28 ? "warning" : "good";
 
