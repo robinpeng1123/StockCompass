@@ -6,6 +6,7 @@ import { ReactNode } from "react";
 
 const NAV = [
   { href: "/", label: "Command Center", icon: NavIconGrid },
+  { href: "/market-stories", label: "Market Stories", icon: NavIconNews },
   { href: "/screener", label: "Stock Search", icon: NavIconSearch },
   { href: "/portfolio", label: "Portfolio Copilot", icon: NavIconShield },
   { href: "/learn", label: "Learn", icon: NavIconBook },
@@ -124,6 +125,14 @@ function NavIconGrid({ active }: { active?: boolean }) {
       <rect x="10" y="2" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
       <rect x="2" y="10" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
       <rect x="10" y="10" width="6" height="6" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  );
+}
+function NavIconNews({ active }: { active?: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={active ? "opacity-100" : "opacity-70"}>
+      <rect x="2.5" y="3.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M5 7h8M5 9.5h8M5 12h5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }

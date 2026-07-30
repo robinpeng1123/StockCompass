@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cx } from "@/lib/utils";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 export function CoachSection({ children }: { children: React.ReactNode }) {
   const [revealed, setRevealed] = useState(false);
@@ -21,7 +22,11 @@ export function CoachSection({ children }: { children: React.ReactNode }) {
         {revealed ? "Hide AI Coach" : "Coach Me!"}
       </button>
 
-      {revealed && <div className="mt-6 space-y-6">{children}</div>}
+      {revealed && (
+        <div className="mt-6 space-y-6">
+          <ErrorBoundary>{children}</ErrorBoundary>
+        </div>
+      )}
     </div>
   );
 }

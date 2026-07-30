@@ -2,16 +2,16 @@ import Link from "next/link";
 
 const FEATURES = [
   { emoji: "🧠", title: "AI Trading Coach", desc: "Avoid emotional mistakes and learn from your own trade history.", href: "#ai-coach" },
-  { emoji: "📊", title: "Market Storytelling", desc: "Today's biggest stock news, with sources.", hrefFor: (ticker: string) => `/stock/${ticker}#news` },
+  { emoji: "📊", title: "Market Storytelling", desc: "The market's biggest headlines, with sources.", href: "/market-stories" },
   { emoji: "🔍", title: "Conversational Search", desc: "Describe what you want in plain English instead of filter forms.", href: "/screener" },
   { emoji: "🎓", title: "Interactive Learning", desc: "Concepts taught through the real stocks you're already exploring.", href: "/learn" },
 ];
 
-export function FeatureStrip({ spotlightTicker }: { spotlightTicker: string }) {
+export function FeatureStrip() {
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
       {FEATURES.map((f) => (
-        <Link key={f.title} href={f.hrefFor ? f.hrefFor(spotlightTicker) : f.href!} className="glass-panel block p-3.5 transition-colors hover:border-white/20 hover:bg-white/[0.04]">
+        <Link key={f.title} href={f.href} className="glass-panel block p-3.5 transition-colors hover:border-white/20 hover:bg-white/[0.04]">
           <div className="text-lg">{f.emoji}</div>
           <div className="mt-1 text-xs font-semibold text-ink-primary">{f.title}</div>
           <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">{f.desc}</p>

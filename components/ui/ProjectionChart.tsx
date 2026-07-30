@@ -34,19 +34,27 @@ export function ProjectionChart({ ticker, scenarios }: { ticker: string; scenari
   const svgRef = useRef<SVGSVGElement>(null);
   const [hist, setHist] = useState<Point[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed, setFailed] = useState(false);
   const [hoverX, setHoverX] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    setLoading(true);
+    setFailed(false);
     fetch(`/api/history/${ticker}?range=1mo`)
       .then((r) => r.json())
       .then((d) => {
-        if (!cancelled) {
-          setHist(d.points ?? []);
-          setLoading(false);
-        }
+        if (cancelled) return;
+        const points: Point[] = d.points ?? [];
+        setHist(points);
+        setFailed(points.length < 2);
+        setLoading(false);
       })
-      .catch(() => !cancelled && setLoading(false));
+      .catch(() => {
+        if (cancelled) return;
+        setFailed(true);
+        setLoading(false);
+      });
     return () => {
       cancelled = true;
     };
@@ -60,11 +68,19 @@ export function ProjectionChart({ ticker, scenarios }: { ticker: string; scenari
   const usableH = height - padY * 2;
   const usableW = width - padX * 2 - axisW;
 
-  if (loading || hist.length < 2) {
+  if (loading) {
     return (
       <div className="flex h-[200px] items-center justify-center text-xs text-ink-muted">
         <span className="h-2 w-2 animate-pulse-soft rounded-full bg-accent-cyan" />
         <span className="ml-2">Loading recent price history…</span>
+      </div>
+    );
+  }
+
+  if (failed || hist.length < 2) {
+    return (
+      <div className="flex h-[200px] items-center justify-center text-xs text-ink-muted">
+        Couldn&apos;t load price history for {ticker} right now.
       </div>
     );
   }

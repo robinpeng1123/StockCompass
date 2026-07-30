@@ -36,7 +36,7 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      <FeatureStrip spotlightTicker={spotlight.ticker} />
+      <FeatureStrip />
 
       <div className="grid gap-4 sm:grid-cols-3">
         {indices.map((idx) => (

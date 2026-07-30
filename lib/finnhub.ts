@@ -133,6 +133,8 @@ export type FinnhubNewsItem = {
   url: string;
   datetime: number; // unix seconds
   summary: string;
+  image?: string;
+  related?: string; // comma-separated tickers the story is about, if any
 };
 
 function toDateStr(d: Date) {
@@ -151,6 +153,26 @@ export async function getCompanyNews(symbol: string, days = 21): Promise<Finnhub
     .filter((n) => n.headline && n.url)
     .sort((a, b) => b.datetime - a.datetime)
     .map((n) => ({ headline: n.headline, source: n.source ?? "Unknown source", url: n.url, datetime: n.datetime, summary: n.summary ?? "" }));
+}
+
+/**
+ * Broad market-moving news (not tied to one ticker) — Finnhub's general news
+ * feed, the free-tier equivalent of a market-wide "top stories" list.
+ */
+export async function getMarketNews(): Promise<FinnhubNewsItem[]> {
+  const raw = await finnhubFetch<any[]>("/news", { category: "general" }, 300);
+  return raw
+    .filter((n) => n.headline && n.url)
+    .sort((a, b) => b.datetime - a.datetime)
+    .map((n) => ({
+      headline: n.headline,
+      source: n.source ?? "Unknown source",
+      url: n.url,
+      datetime: n.datetime,
+      summary: n.summary ?? "",
+      image: n.image || undefined,
+      related: n.related || undefined,
+    }));
 }
 
 export type FinnhubEarning = {
