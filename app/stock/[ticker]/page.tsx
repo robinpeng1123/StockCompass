@@ -13,6 +13,7 @@ import { MarketStory } from "@/components/MarketStory";
 import { StockNews } from "@/components/StockNews";
 import { StockEarnings } from "@/components/StockEarnings";
 import { CoachSection } from "@/components/CoachSection";
+import { AddToPortfolioButton } from "@/components/AddToPortfolioButton";
 import { Card } from "@/components/ui/Card";
 
 export const dynamic = "force-dynamic";
@@ -63,6 +64,9 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
             )}
           </div>
           <p className="mt-1 max-w-xl text-sm text-ink-secondary">{stock.blurb}</p>
+          <div className="mt-3">
+            <AddToPortfolioButton ticker={stock.ticker} price={stock.price} />
+          </div>
         </div>
         <LiveStockHeaderPrice ticker={stock.ticker} price={stock.price} prevClose={stock.prevClose} changePct={stock.changePct} />
       </div>

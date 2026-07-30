@@ -25,13 +25,16 @@ export function generateProjectionPath({
   const n = Math.max(1, Math.round(days));
   const rand = mulberry32(seedFromString(`${ticker}:${dateKey}`));
 
+  // Two noise components — a slow-ish wander plus a sharper per-step jitter —
+  // read as a genuinely jagged path rather than one smooth wave.
   const walk = [0];
-  for (let i = 1; i <= n; i++) walk.push(walk[i - 1] + (rand() - 0.5) * 2);
+  for (let i = 1; i <= n; i++) walk.push(walk[i - 1] + (rand() - 0.5) * 2.4 + (rand() - 0.5) * 1.4);
   const wEnd = walk[n];
   const bridge = walk.map((w, i) => w - (i / n) * wEnd);
 
-  const stdevDecimal = Math.max(0.005, dailyVolatilityPct / 100);
-  const scale = startPrice * stdevDecimal;
+  const JAGGEDNESS = 1.9;
+  const stdevDecimal = Math.max(0.008, dailyVolatilityPct / 100);
+  const scale = startPrice * stdevDecimal * JAGGEDNESS;
 
   const path = bridge.map((b, i) => startPrice + (i / n) * (endPrice - startPrice) + b * scale);
   path[0] = startPrice;

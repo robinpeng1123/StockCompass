@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ReactNode } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
+import { useSession, signOut } from "next-auth/react";
 
 const NAV = [
   { href: "/", label: "Command Center", icon: NavIconGrid },
@@ -51,6 +52,20 @@ export default function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
 
+          <div className="px-3 pb-1">
+            <Link
+              href="/settings"
+              className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+                pathname === "/settings"
+                  ? "bg-white/[0.06] text-ink-primary shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+                  : "text-ink-secondary hover:bg-white/[0.03] hover:text-ink-primary"
+              }`}
+            >
+              <NavIconSettings active={pathname === "/settings"} />
+              Settings
+            </Link>
+          </div>
+
           <div className="m-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
             <div className="flex items-center gap-2 text-xs font-medium text-ink-secondary">
               <span className="h-1.5 w-1.5 animate-pulse-soft rounded-full bg-status-good" />
@@ -98,6 +113,26 @@ function MobileTabBar() {
 }
 
 function TopBar() {
+  const { data: session, status } = useSession();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function onClickOutside(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", onClickOutside);
+    return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  const initials = (session?.user?.name || session?.user?.email || "?")
+    .trim()
+    .split(/\s+/)
+    .map((p) => p[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
   return (
     <header className="sticky top-0 z-30 flex items-center gap-4 border-b border-white/[0.06] bg-plane/70 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex items-center gap-2 lg:hidden">
@@ -110,14 +145,61 @@ function TopBar() {
           <span className="h-1.5 w-1.5 rounded-full bg-status-good" />
           Markets open · simulated
         </div>
-        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-series-7 to-series-5 text-xs font-semibold text-white">
-          RP
-        </div>
+
+        {status === "authenticated" && session?.user ? (
+          <div ref={menuRef} className="relative">
+            <button
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-series-7 to-series-5 text-xs font-semibold text-white"
+            >
+              {session.user.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={session.user.image} alt="" className="h-8 w-8 rounded-full object-cover" />
+              ) : (
+                initials
+              )}
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 z-40 mt-2 w-48 overflow-hidden rounded-xl border border-white/10 bg-surface-raised shadow-lg">
+                <div className="border-b border-white/[0.06] px-3 py-2">
+                  <p className="truncate text-xs font-medium text-ink-primary">{session.user.name || "Signed in"}</p>
+                  <p className="truncate text-[11px] text-ink-muted">{session.user.email}</p>
+                </div>
+                <button
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="block w-full px-3 py-2 text-left text-xs text-ink-secondary hover:bg-white/[0.05] hover:text-ink-primary"
+                >
+                  Sign out
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <Link
+            href="/sign-in"
+            className="rounded-full bg-gradient-to-r from-accent-cyan to-accent-violet px-4 py-1.5 text-xs font-semibold text-plane hover:opacity-90"
+          >
+            Sign in
+          </Link>
+        )}
       </div>
     </header>
   );
 }
 
+function NavIconSettings({ active }: { active?: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={active ? "opacity-100" : "opacity-70"}>
+      <circle cx="9" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <path
+        d="M9 2.5v1.6M9 13.9v1.6M15.5 9h-1.6M4.1 9H2.5M13.4 4.6l-1.1 1.1M5.7 12.3l-1.1 1.1M13.4 13.4l-1.1-1.1M5.7 5.7L4.6 4.6"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
 function NavIconGrid({ active }: { active?: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={active ? "opacity-100" : "opacity-70"}>

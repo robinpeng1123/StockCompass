@@ -1,5 +1,6 @@
-import { GLOSSARY } from "@/lib/mockData";
+import { GLOSSARY, VIDEOS } from "@/lib/mockData";
 import { GlossaryCard } from "@/components/GlossaryCard";
+import { VideoCard } from "@/components/VideoCard";
 import { Card, CardHeader } from "@/components/ui/Card";
 
 export default function LearnPage() {
@@ -21,10 +22,22 @@ export default function LearnPage() {
         </p>
       </Card>
 
-      <div className="space-y-3">
-        {GLOSSARY.map((term) => (
-          <GlossaryCard key={term.term} term={term} />
-        ))}
+      <div>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">Video lessons</h2>
+        <div className="grid gap-4 sm:grid-cols-2">
+          {VIDEOS.map((video) => (
+            <VideoCard key={video.videoId} video={video} />
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">Concepts</h2>
+        <div className="space-y-3">
+          {GLOSSARY.map((term) => (
+            <GlossaryCard key={term.term} term={term} />
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useWatchlist } from "@/lib/useWatchlist";
 import { Card, CardHeader } from "./ui/Card";
 import { Badge } from "./ui/Badge";
+import { AddStockForm } from "./AddStockForm";
 
 export function PortfolioCopilot({ compact = false }: { compact?: boolean }) {
-  const { entries, stats, loading } = useWatchlist();
+  const { entries, stats, loading, add } = useWatchlist();
   const { topSector, correlatedPct, avgRisk, avgVolatility, totalGainPct } = stats;
 
   if (loading) {
@@ -22,13 +22,11 @@ export function PortfolioCopilot({ compact = false }: { compact?: boolean }) {
     return (
       <Card>
         <CardHeader eyebrow="Portfolio Copilot" title="What your portfolio is telling you" icon={<CopilotIcon />} />
-        <p className="text-sm leading-relaxed text-ink-secondary">
-          Your portfolio is empty. Add a stock to build a watchlist — the AI Copilot will explain your sector
+        <p className="mb-4 text-sm leading-relaxed text-ink-secondary">
+          Your portfolio is empty. Add your first stock below — the AI Copilot will explain your sector
           concentration and risk once there's something to analyze.
         </p>
-        <Link href="/portfolio" className="mt-3 inline-block text-xs font-semibold text-accent-cyan hover:underline">
-          Add your first stock →
-        </Link>
+        <AddStockForm onAdd={add} />
       </Card>
     );
   }

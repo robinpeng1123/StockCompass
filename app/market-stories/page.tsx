@@ -27,7 +27,7 @@ export default async function MarketStoriesPage() {
               <Card key={i} className="flex gap-4">
                 {n.image && (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={n.image} alt="" className="hidden h-20 w-28 shrink-0 rounded-lg object-cover sm:block" />
+                  <img src={n.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover sm:h-20 sm:w-28" />
                 )}
                 <div className="min-w-0 flex-1">
                   <a href={n.url} target="_blank" rel="noopener noreferrer" className="group block">
