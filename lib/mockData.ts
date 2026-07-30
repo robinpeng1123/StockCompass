@@ -1,4 +1,4 @@
-import { CoachTip, GlossaryTerm, NewsItem, Pattern, Scenario, StoryEvent } from "./types";
+import { GlossaryTerm, NewsItem, Pattern, Scenario, StoryEvent } from "./types";
 
 // ---------------- Patterns (AI pattern-detection explanations) ----------------
 
@@ -143,32 +143,6 @@ export const NEWS: NewsItem[] = [
   { id: "n8", ticker: "XOM", headline: "Exxon steady as crude holds range ahead of inventory data", category: "macro", minutesAgo: 150, sentiment: "neutral" },
   { id: "n9", ticker: "AMD", headline: "AMD's next-gen accelerator sampling ahead of schedule", category: "product", minutesAgo: 172, sentiment: "positive" },
   { id: "n10", ticker: "RIVN", headline: "Rivian cuts production guidance on demand softness", category: "earnings", minutesAgo: 205, sentiment: "negative" },
-];
-
-// ---------------- AI Trading Coach tips ----------------
-
-export const COACH_TIPS: CoachTip[] = [
-  {
-    id: "c1",
-    kind: "warning",
-    title: "You tend to sell winners early",
-    detail:
-      "In your last 12 trades, you closed profitable positions after an average gain of 4.2% — but held losing positions for 3x longer before selling. This is a classic disposition-effect pattern.",
-  },
-  {
-    id: "c2",
-    kind: "lesson",
-    title: "This week's concept: position sizing",
-    detail:
-      "Two trades of equal conviction shouldn't always get equal dollars. Sizing by volatility (smaller size in choppier names) keeps any single name from dominating your swings.",
-  },
-  {
-    id: "c3",
-    kind: "good",
-    title: "You waited for confirmation on NVDA",
-    detail:
-      "Rather than buying the first green candle, you waited for the pattern to close above resistance on volume — exactly the kind of patience that reduces false-signal entries.",
-  },
 ];
 
 // ---------------- Learning glossary ----------------

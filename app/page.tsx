@@ -10,7 +10,6 @@ import { PatternCard } from "@/components/PatternCard";
 import { RiskMeter } from "@/components/RiskMeter";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { MarketStory } from "@/components/MarketStory";
-import { AICoachPanel } from "@/components/AICoachPanel";
 import { TrendingNews } from "@/components/TrendingNews";
 import { PortfolioCopilot } from "@/components/PortfolioCopilot";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -75,16 +74,9 @@ export default async function DashboardPage() {
         <MarketStory ticker={spotlight.ticker} events={story} />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-1">
-          <PortfolioCopilot compact />
-        </div>
-        <div id="ai-coach" className="scroll-mt-24 lg:col-span-1">
-          <AICoachPanel />
-        </div>
-        <div className="lg:col-span-1">
-          <TrendingNews />
-        </div>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <PortfolioCopilot />
+        <TrendingNews />
       </div>
     </div>
   );

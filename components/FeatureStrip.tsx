@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 const FEATURES = [
-  { emoji: "🧠", title: "AI Trading Coach", desc: "Avoid emotional mistakes and learn from your own trade history.", href: "#ai-coach" },
+  { emoji: "💼", title: "Portfolio Copilot", desc: "Build a watchlist and see your sector concentration and risk explained.", href: "/portfolio" },
   { emoji: "📊", title: "Market Storytelling", desc: "The market's biggest headlines, with sources.", href: "/market-stories" },
   { emoji: "🔍", title: "Conversational Search", desc: "Describe what you want in plain English instead of filter forms.", href: "/screener" },
   { emoji: "🎓", title: "Interactive Learning", desc: "Concepts taught through the real stocks you're already exploring.", href: "/learn" },

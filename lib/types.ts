@@ -53,13 +53,6 @@ export type StoryEvent = {
   priceImpactPct: number;
 };
 
-export type CoachTip = {
-  id: string;
-  title: string;
-  detail: string;
-  kind: "warning" | "good" | "lesson";
-};
-
 export type GlossaryTerm = {
   term: string;
   short: string;
