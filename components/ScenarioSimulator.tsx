@@ -2,8 +2,9 @@
 
 import { Scenario } from "@/lib/types";
 import { Card, CardHeader } from "./ui/Card";
+import { Badge } from "./ui/Badge";
 import { signed } from "@/lib/utils";
-import { ProjectionChart } from "./ui/ProjectionChart";
+import { ScenarioMiniChart } from "./ui/ScenarioMiniChart";
 
 const SCENARIO_COLOR: Record<Scenario["label"], string> = {
   Bullish: "#0ca30c",
@@ -11,15 +12,23 @@ const SCENARIO_COLOR: Record<Scenario["label"], string> = {
   Bearish: "#d03b3b",
 };
 
-export function ScenarioSimulator({ ticker, scenarios }: { ticker: string; scenarios: Scenario[] }) {
-  const allLows = scenarios.map((s) => s.rangeLowPct);
-  const allHighs = scenarios.map((s) => s.rangeHighPct);
-  const min = Math.min(0, ...allLows) - 2;
-  const max = Math.max(0, ...allHighs) + 2;
-  const span = max - min;
-  const pctToX = (pct: number) => ((pct - min) / span) * 100;
-  const zeroX = pctToX(0);
+const SCENARIO_STATUS: Record<Scenario["label"], "good" | "neutral" | "critical"> = {
+  Bullish: "good",
+  Neutral: "neutral",
+  Bearish: "critical",
+};
 
+export function ScenarioSimulator({
+  ticker,
+  scenarios,
+  price,
+  volatility,
+}: {
+  ticker: string;
+  scenarios: Scenario[];
+  price: number;
+  volatility: number;
+}) {
   return (
     <Card>
       <CardHeader
@@ -29,86 +38,43 @@ export function ScenarioSimulator({ ticker, scenarios }: { ticker: string; scena
         action={<span className="text-[11px] text-ink-muted">Scenario analysis, not a forecast</span>}
       />
 
-      <div className="mb-6">
-        <ProjectionChart ticker={ticker} scenarios={scenarios} />
-      </div>
-
       {/* Combined probability — single stacked bar, part-to-whole across the three scenarios */}
-      <div className="mb-1.5 flex text-[11px] text-ink-muted">
-        <span>Probability weighting</span>
-      </div>
+      <div className="mb-1.5 text-[11px] text-ink-muted">Probability weighting</div>
       <div className="flex h-6 w-full overflow-hidden rounded-lg">
         {scenarios.map((s, i) => (
           <div
             key={s.label}
             className="flex items-center justify-center text-[11px] font-semibold text-white/90"
-            style={{
-              width: `${s.probabilityPct}%`,
-              backgroundColor: SCENARIO_COLOR[s.label],
-              marginLeft: i === 0 ? 0 : 2,
-            }}
+            style={{ width: `${s.probabilityPct}%`, backgroundColor: SCENARIO_COLOR[s.label], marginLeft: i === 0 ? 0 : 2 }}
           >
             {s.probabilityPct >= 12 ? `${s.probabilityPct}%` : ""}
           </div>
         ))}
       </div>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+
+      <div className="mt-5 grid gap-4 sm:grid-cols-3">
         {scenarios.map((s) => (
-          <span key={s.label} className="flex items-center gap-1.5 text-[11px] text-ink-secondary">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: SCENARIO_COLOR[s.label] }} />
-            {s.label}
-          </span>
+          <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-ink-primary">{s.label}</span>
+              <Badge status={SCENARIO_STATUS[s.label]} className="px-1.5 py-0.5 text-[10px]">
+                {s.probabilityPct}% chance
+              </Badge>
+            </div>
+
+            <ScenarioMiniChart ticker={ticker} scenario={s} price={price} volatilityScore={volatility} color={SCENARIO_COLOR[s.label]} />
+
+            <div className="mt-2 text-xs font-semibold tabular-nums text-ink-primary">
+              {signed(s.rangeLowPct, 0)}% to {signed(s.rangeHighPct, 0)}%
+            </div>
+            <p className="mt-1 text-[11px] leading-relaxed text-ink-secondary">{s.trigger}</p>
+          </div>
         ))}
       </div>
 
-      {/* Per-scenario detail rows with a floating range bar on a shared axis */}
-      <div className="mt-6 space-y-5">
-        <div className="relative h-4">
-          <div className="absolute inset-y-0 border-l border-white/15" style={{ left: `${zeroX}%` }} />
-          <span
-            className="absolute -top-4 -translate-x-1/2 text-[10px] text-ink-muted"
-            style={{ left: `${zeroX}%` }}
-          >
-            0%
-          </span>
-        </div>
-
-        {scenarios.map((s) => {
-          const lowX = pctToX(s.rangeLowPct);
-          const highX = pctToX(s.rangeHighPct);
-          const color = SCENARIO_COLOR[s.label];
-          return (
-            <div key={s.label}>
-              <div className="mb-1 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-                  <span className="text-sm font-medium text-ink-primary">{s.label}</span>
-                  <span className="text-xs text-ink-muted">· {s.probabilityPct}% chance</span>
-                </div>
-                <span className="text-xs font-semibold tabular-nums text-ink-primary">
-                  {signed(s.rangeLowPct, 0)}% to {signed(s.rangeHighPct, 0)}%
-                </span>
-              </div>
-              <p className="mb-1.5 text-xs text-ink-secondary">{s.trigger}</p>
-              <div className="relative h-3 rounded-full bg-white/[0.05]">
-                <div className="absolute inset-y-0 border-l border-white/15" style={{ left: `${zeroX}%` }} />
-                <div
-                  className="absolute inset-y-0 rounded-full"
-                  style={{
-                    left: `${Math.min(lowX, highX)}%`,
-                    width: `${Math.max(2, Math.abs(highX - lowX))}%`,
-                    backgroundColor: color,
-                  }}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
       <p className="mt-5 text-[11px] leading-relaxed text-ink-muted">
-        These are illustrative probability-weighted ranges based on historical analogues, not a guarantee — markets
-        don&apos;t owe any scenario its stated odds.
+        Each path is a simulated month-end estimate for that scenario, not a guarantee — markets don&apos;t owe any
+        scenario its stated odds.
       </p>
     </Card>
   );

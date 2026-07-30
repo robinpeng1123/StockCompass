@@ -40,7 +40,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <CoachSection>
-        <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} />
+        <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} price={stock.price} volatility={stock.volatility} />
         <div className="grid gap-6 lg:grid-cols-2">
           <PatternCard pattern={pattern} ticker={stock.ticker} />
           <RiskMeter stock={stock} />
