@@ -1,4 +1,4 @@
-import { CoachTip, GlossaryTerm, Holding, NewsItem, Pattern, Scenario, StoryEvent } from "./types";
+import { CoachTip, GlossaryTerm, NewsItem, Pattern, Scenario, StoryEvent } from "./types";
 
 // ---------------- Patterns (AI pattern-detection explanations) ----------------
 
@@ -143,19 +143,6 @@ export const NEWS: NewsItem[] = [
   { id: "n8", ticker: "XOM", headline: "Exxon steady as crude holds range ahead of inventory data", category: "macro", minutesAgo: 150, sentiment: "neutral" },
   { id: "n9", ticker: "AMD", headline: "AMD's next-gen accelerator sampling ahead of schedule", category: "product", minutesAgo: 172, sentiment: "positive" },
   { id: "n10", ticker: "RIVN", headline: "Rivian cuts production guidance on demand softness", category: "earnings", minutesAgo: 205, sentiment: "negative" },
-];
-
-// ---------------- Portfolio (for Portfolio Copilot) ----------------
-
-export const HOLDINGS: Holding[] = [
-  { ticker: "NVDA", shares: 40, costBasis: 96.2 },
-  { ticker: "AMD", shares: 60, costBasis: 121.4 },
-  { ticker: "SMCI", shares: 80, costBasis: 52.7 },
-  { ticker: "AAPL", shares: 30, costBasis: 189.5 },
-  { ticker: "MSFT", shares: 15, costBasis: 402.1 },
-  { ticker: "PLTR", shares: 50, costBasis: 71.3 },
-  { ticker: "KO", shares: 45, costBasis: 63.8 },
-  { ticker: "O", shares: 70, costBasis: 58.9 },
 ];
 
 // ---------------- AI Trading Coach tips ----------------

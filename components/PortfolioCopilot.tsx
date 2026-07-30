@@ -1,11 +1,37 @@
-import { computePortfolio } from "@/lib/portfolio";
+"use client";
+
+import Link from "next/link";
+import { useWatchlist } from "@/lib/useWatchlist";
 import { Card, CardHeader } from "./ui/Card";
 import { Badge } from "./ui/Badge";
 
-type PortfolioData = Awaited<ReturnType<typeof computePortfolio>>;
+export function PortfolioCopilot({ compact = false }: { compact?: boolean }) {
+  const { entries, stats, loading } = useWatchlist();
+  const { topSector, correlatedPct, avgRisk, avgVolatility, totalGainPct } = stats;
 
-export async function PortfolioCopilot({ compact = false, data }: { compact?: boolean; data?: PortfolioData }) {
-  const { topSector, correlatedPct, avgRisk, avgVolatility, totalGainPct } = data ?? (await computePortfolio());
+  if (loading) {
+    return (
+      <Card>
+        <CardHeader eyebrow="Portfolio Copilot" title="What your portfolio is telling you" icon={<CopilotIcon />} />
+        <p className="text-sm text-ink-muted">Loading your portfolio…</p>
+      </Card>
+    );
+  }
+
+  if (entries.length === 0 || !topSector) {
+    return (
+      <Card>
+        <CardHeader eyebrow="Portfolio Copilot" title="What your portfolio is telling you" icon={<CopilotIcon />} />
+        <p className="text-sm leading-relaxed text-ink-secondary">
+          Your portfolio is empty. Add a stock to build a watchlist — the AI Copilot will explain your sector
+          concentration and risk once there's something to analyze.
+        </p>
+        <Link href="/portfolio" className="mt-3 inline-block text-xs font-semibold text-accent-cyan hover:underline">
+          Add your first stock →
+        </Link>
+      </Card>
+    );
+  }
 
   const concentrationLevel = topSector.pct >= 40 ? "critical" : topSector.pct >= 28 ? "warning" : "good";
 

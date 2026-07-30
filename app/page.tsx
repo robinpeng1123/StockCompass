@@ -14,6 +14,7 @@ import { AICoachPanel } from "@/components/AICoachPanel";
 import { TrendingNews } from "@/components/TrendingNews";
 import { PortfolioCopilot } from "@/components/PortfolioCopilot";
 import { Card, CardHeader } from "@/components/ui/Card";
+import { Greeting } from "@/components/Greeting";
 
 export const dynamic = "force-dynamic";
 
@@ -28,14 +29,14 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-7xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-ink-primary">
-          Good morning — here&apos;s your <span className="text-gradient">command center</span>
+          <Greeting /> — here&apos;s your <span className="text-gradient">command center</span>
         </h1>
         <p className="mt-1 text-sm text-ink-secondary">
           Patterns explained, risk scored, scenarios simulated. No hype, just what the data actually says.
         </p>
       </div>
 
-      <FeatureStrip />
+      <FeatureStrip spotlightTicker={spotlight.ticker} />
 
       <div className="grid gap-4 sm:grid-cols-3">
         {indices.map((idx) => (
@@ -78,7 +79,7 @@ export default async function DashboardPage() {
         <div className="lg:col-span-1">
           <PortfolioCopilot compact />
         </div>
-        <div className="lg:col-span-1">
+        <div id="ai-coach" className="scroll-mt-24 lg:col-span-1">
           <AICoachPanel />
         </div>
         <div className="lg:col-span-1">

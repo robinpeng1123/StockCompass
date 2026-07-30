@@ -77,7 +77,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
         </div>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div id="news" className="grid scroll-mt-24 gap-6 lg:grid-cols-2">
         <StockNews ticker={stock.ticker} news={news} />
         <StockEarnings ticker={stock.ticker} earnings={earnings} />
       </div>

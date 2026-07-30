@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Scenario } from "@/lib/types";
 import { formatPrice, signed } from "@/lib/utils";
+import { generateProjectionPath } from "@/lib/projectionPath";
 
 type Point = { t: number; close: number };
 
@@ -10,12 +11,23 @@ function formatAxisDate(unixMs: number) {
   return new Date(unixMs).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
+function recentDailyVolatilityPct(closes: number[]) {
+  if (closes.length < 3) return 1.5;
+  const returns: number[] = [];
+  for (let i = 1; i < closes.length; i++) returns.push((closes[i] - closes[i - 1]) / closes[i - 1]);
+  const mean = returns.reduce((s, r) => s + r, 0) / returns.length;
+  const variance = returns.reduce((s, r) => s + (r - mean) ** 2, 0) / returns.length;
+  return Math.sqrt(variance) * 100;
+}
+
 /**
  * Recent price history as a solid line, followed by a dashed gray line
- * projecting forward to the probability-weighted price implied by the
- * scenario table, landing at December 31 of the current year. Actual vs.
- * projected gets its own legend since two series share the chart, and
- * hover shows the value + date on either side of "Today".
+ * projecting forward — with realistic-looking ups and downs, not a straight
+ * ramp — to the probability-weighted price implied by the scenario table,
+ * landing at the end of the current month. The wiggle is seeded by ticker +
+ * today's date, so it's stable all day and only reshapes the next day.
+ * Actual vs. projected gets its own legend, and hover shows value + date on
+ * either side of "Today".
  */
 export function ProjectionChart({ ticker, scenarios }: { ticker: string; scenarios: Scenario[] }) {
   const id = useId();
@@ -63,35 +75,45 @@ export function ProjectionChart({ ticker, scenarios }: { ticker: string; scenari
   const color = up ? "#0ca30c" : "#d03b3b";
 
   const now = new Date();
-  const yearEnd = Date.UTC(now.getUTCFullYear(), 11, 31);
-  const msRemaining = Math.max(yearEnd - lastT, 86_400_000);
-  const weeksRemaining = Math.max(1, Math.min(52, Math.ceil(msRemaining / (7 * 86_400_000))));
+  const dateKey = now.toISOString().slice(0, 10);
+  const monthEnd = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0);
+  const msRemaining = Math.max(monthEnd - lastT, 86_400_000);
+  const daysRemaining = Math.max(1, Math.min(31, Math.round(msRemaining / 86_400_000)));
 
   const expectedPct = scenarios.reduce((sum, s) => sum + (s.probabilityPct / 100) * ((s.rangeLowPct + s.rangeHighPct) / 2), 0);
   const projectedPrice = price * (1 + expectedPct / 100);
+  const dailyVol = recentDailyVolatilityPct(hist.map((p) => p.close));
+  const wigglePath = generateProjectionPath({ ticker, dateKey, startPrice: price, endPrice: projectedPrice, days: daysRemaining, dailyVolatilityPct: dailyVol });
 
-  const totalSlots = hist.length - 1 + weeksRemaining;
+  const totalSlots = hist.length - 1 + daysRemaining;
   const closes = hist.map((p) => p.close);
-  const min = Math.min(...closes, projectedPrice);
-  const max = Math.max(...closes, projectedPrice);
+  const min = Math.min(...closes, ...wigglePath);
+  const max = Math.max(...closes, ...wigglePath);
   const span = max - min || 1;
 
   const xAt = (i: number) => axisW + padX + (i / totalSlots) * usableW;
   const yAt = (v: number) => padY + usableH - ((v - min) / span) * usableH;
-  const dateAt = (i: number) => (i < hist.length ? hist[i].t * 1000 : lastT + (i - (hist.length - 1)) * (msRemaining / weeksRemaining));
+  const dateAt = (i: number) => (i < hist.length ? hist[i].t * 1000 : lastT + (i - (hist.length - 1)) * (msRemaining / daysRemaining));
 
   const histPoints = hist.map((p, i) => [xAt(i), yAt(p.close)] as const);
   const histPath = histPoints.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
 
   const lastX = histPoints[histPoints.length - 1][0];
   const lastY = histPoints[histPoints.length - 1][1];
-  const projX = xAt(totalSlots);
-  const projY = yAt(projectedPrice);
-  const projPath = `M${lastX.toFixed(2)},${lastY.toFixed(2)} L${projX.toFixed(2)},${projY.toFixed(2)}`;
+
+  const projPoints = wigglePath.map((v, i) => [xAt(hist.length - 1 + i), yAt(v)] as const);
+  const projPath = projPoints.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
+  const projX = projPoints[projPoints.length - 1][0];
+  const projY = projPoints[projPoints.length - 1][1];
 
   const yTicks = [0, 0.33, 0.66, 1].map((f) => ({ y: padY + usableH * (1 - f), value: min + span * f }));
-  const xTickIdx = [0, Math.round(hist.length * 0.5), hist.length - 1, hist.length - 1 + Math.round(weeksRemaining * 0.5), totalSlots];
-  const xTicks = Array.from(new Set(xTickIdx)).map((i) => ({ x: xAt(i), label: formatAxisDate(dateAt(i)) }));
+  const xTickIdx = [0, Math.round(hist.length * 0.5), hist.length - 1, hist.length - 1 + Math.round(daysRemaining * 0.5), totalSlots];
+  const xTicks: { x: number; label: string }[] = [];
+  for (const i of Array.from(new Set(xTickIdx))) {
+    const x = xAt(i);
+    if (xTicks.length > 0 && x - xTicks[xTicks.length - 1].x < 36) continue; // avoid label collisions when the range is short
+    xTicks.push({ x, label: formatAxisDate(dateAt(i)) });
+  }
 
   function handleMove(e: React.PointerEvent<SVGSVGElement>) {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -106,12 +128,23 @@ export function ProjectionChart({ ticker, scenarios }: { ticker: string; scenari
       const idx = Math.max(0, Math.min(hist.length - 1, Math.round(((hoverX - axisW - padX) / usableW) * totalSlots)));
       hover = { x: histPoints[idx][0], y: histPoints[idx][1], value: hist[idx].close, label: formatAxisDate(hist[idx].t * 1000), isProjected: false };
     } else {
-      const f = Math.max(0, Math.min(1, (hoverX - lastX) / (projX - lastX)));
+      // Find the projected-path segment the pointer falls in and interpolate within it.
+      let segIdx = 0;
+      for (let i = 0; i < projPoints.length - 1; i++) {
+        if (hoverX >= projPoints[i][0] && hoverX <= projPoints[i + 1][0]) {
+          segIdx = i;
+          break;
+        }
+        segIdx = i;
+      }
+      const [x0, y0] = projPoints[segIdx];
+      const [x1, y1] = projPoints[Math.min(segIdx + 1, projPoints.length - 1)];
+      const f = x1 > x0 ? Math.max(0, Math.min(1, (hoverX - x0) / (x1 - x0))) : 0;
       hover = {
         x: hoverX,
-        y: lastY + f * (projY - lastY),
-        value: price + f * (projectedPrice - price),
-        label: `${formatAxisDate(lastT + f * msRemaining)} (estimate)`,
+        y: y0 + f * (y1 - y0),
+        value: wigglePath[segIdx] + f * (wigglePath[Math.min(segIdx + 1, wigglePath.length - 1)] - wigglePath[segIdx]),
+        label: `${formatAxisDate(dateAt(hist.length - 1 + segIdx + f))} (estimate)`,
         isProjected: true,
       };
     }
@@ -129,7 +162,7 @@ export function ProjectionChart({ ticker, scenarios }: { ticker: string; scenari
           onPointerMove={handleMove}
           onPointerLeave={() => setHoverX(null)}
           role="img"
-          aria-label="Recent price history with a probability-weighted projection to year-end, hover for detail"
+          aria-label="Recent price history with a probability-weighted projection to month-end, hover for detail"
         >
           <defs>
             <linearGradient id={`proj-fill-${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -155,7 +188,7 @@ export function ProjectionChart({ ticker, scenarios }: { ticker: string; scenari
           <path d={`${histPath} L${lastX},${height - padY} L${axisW + padX},${height - padY} Z`} fill={`url(#proj-fill-${id})`} stroke="none" />
           <path d={histPath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
-          <path d={projPath} fill="none" stroke="#5b6580" strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" />
+          <path d={projPath} fill="none" stroke="#5b6580" strokeWidth={2} strokeDasharray="5 4" strokeLinecap="round" strokeLinejoin="round" />
           <circle cx={lastX} cy={lastY} r={4} fill={color} stroke="#10141f" strokeWidth={2} />
           <circle cx={projX} cy={projY} r={4} fill="#5b6580" stroke="#10141f" strokeWidth={2} />
 
@@ -192,11 +225,11 @@ export function ProjectionChart({ ticker, scenarios }: { ticker: string; scenari
           </span>
           <span className="flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full bg-ink-muted" />
-            Year-end projection
+            Month-end projection
           </span>
         </div>
         <span className="text-[11px] font-medium text-ink-secondary">
-          Est. {formatPrice(projectedPrice)} by Dec 31 ({signed(expectedPct, 1)}%)
+          Est. {formatPrice(projectedPrice)} by {formatAxisDate(monthEnd)} ({signed(expectedPct, 1)}%)
         </span>
       </div>
     </div>

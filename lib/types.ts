@@ -53,12 +53,6 @@ export type StoryEvent = {
   priceImpactPct: number;
 };
 
-export type Holding = {
-  ticker: string;
-  shares: number;
-  costBasis: number;
-};
-
 export type CoachTip = {
   id: string;
   title: string;

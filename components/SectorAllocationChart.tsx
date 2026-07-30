@@ -1,11 +1,15 @@
 "use client";
 
-import { SectorSlice } from "@/lib/portfolio";
+import { SectorSlice } from "@/lib/portfolioStats";
 import { sectorColor } from "@/lib/sectorColors";
 import { useState } from "react";
 
 export function SectorAllocationChart({ sectors, totalValue }: { sectors: SectorSlice[]; totalValue: number }) {
   const [hover, setHover] = useState<string | null>(null);
+
+  if (sectors.length === 0) {
+    return <p className="text-sm text-ink-muted">Add stocks to your portfolio to see sector concentration here.</p>;
+  }
 
   return (
     <div>
