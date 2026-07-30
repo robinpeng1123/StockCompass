@@ -1,13 +1,16 @@
 import "server-only";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "@/generated/prisma/client";
+import { resolveDatabaseUrl } from "./dbUrl";
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function makeClient() {
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = resolveDatabaseUrl();
   if (!connectionString) {
-    throw new Error("DATABASE_URL is not set — required for portfolio/auth database access.");
+    throw new Error(
+      "No database connection string found — set DATABASE_URL (or POSTGRES_URL / POSTGRES_PRISMA_URL) in your environment."
+    );
   }
   const adapter = new PrismaPg({ connectionString });
   return new PrismaClient({ adapter });
