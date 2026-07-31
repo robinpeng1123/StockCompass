@@ -8,7 +8,7 @@ import { PriceChart } from "@/components/ui/PriceChart";
 import { LiveStockHeaderPrice } from "@/components/ui/LiveStockHeaderPrice";
 import { PatternCard } from "@/components/PatternCard";
 import { RiskMeter } from "@/components/RiskMeter";
-import { ScenarioSimulator } from "@/components/ScenarioSimulator";
+import { AIScenarioSimulator } from "@/components/AIScenarioSimulator";
 import { MarketStory } from "@/components/MarketStory";
 import { StockNews } from "@/components/StockNews";
 import { StockEarnings } from "@/components/StockEarnings";
@@ -41,7 +41,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <CoachSection>
-        <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} price={stock.price} volatility={stock.volatility} />
+        <AIScenarioSimulator ticker={stock.ticker} fallbackScenarios={scenarios} price={stock.price} volatility={stock.volatility} />
         <div className="grid gap-6 lg:grid-cols-2">
           <PatternCard pattern={pattern} ticker={stock.ticker} />
           <RiskMeter stock={stock} />
