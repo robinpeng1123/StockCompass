@@ -1,4 +1,4 @@
-import { GlossaryTerm, NewsItem, Pattern, Scenario } from "./types";
+import { GlossaryTerm, Pattern, Scenario } from "./types";
 
 // ---------------- Patterns (AI pattern-detection explanations) ----------------
 
@@ -57,6 +57,15 @@ export const PATTERNS: Record<string, Pattern> = {
       "A tight, low-volume consolidation is forming just under a recent high — the pause looks like digestion of gains rather than new sellers stepping in.",
     historicalStat: "This setup has produced upward breakouts 68% of the time over the past decade.",
   },
+  INTC: {
+    name: "Rounding Bottom",
+    confidencePct: 60,
+    detectedOn: "Jul 21",
+    direction: "bullish",
+    explanation:
+      "Price is carving out a gradual, bowl-shaped recovery off multi-year lows — a slow shift from heavy selling to accumulation rather than a sharp reversal.",
+    historicalStat: "Rounding bottoms in beaten-down turnaround names have resolved upward 55% of the time historically.",
+  },
 };
 
 export function getPattern(ticker: string): Pattern {
@@ -102,21 +111,6 @@ const DEFAULT_SCENARIOS: Scenario[] = [
 export function getScenarios(ticker: string): Scenario[] {
   return SCENARIOS[ticker.toUpperCase()] ?? DEFAULT_SCENARIOS;
 }
-
-// ---------------- News ----------------
-
-export const NEWS: NewsItem[] = [
-  { id: "n1", ticker: "NVDA", headline: "Nvidia extends rally as AI capex commentary stays upbeat", category: "analyst", minutesAgo: 22, sentiment: "positive" },
-  { id: "n2", ticker: "TSLA", headline: "Tesla deliveries top estimates despite price cuts", category: "earnings", minutesAgo: 41, sentiment: "positive" },
-  { id: "n3", ticker: "SMCI", headline: "Super Micro slides on renewed supply-chain concerns", category: "product", minutesAgo: 58, sentiment: "negative" },
-  { id: "n4", ticker: "PLTR", headline: "Palantir wins expanded government contract", category: "product", minutesAgo: 75, sentiment: "positive" },
-  { id: "n5", ticker: "AAPL", headline: "Apple supplier checks point to steady iPhone demand", category: "analyst", minutesAgo: 96, sentiment: "neutral" },
-  { id: "n6", ticker: "MSFT", headline: "Microsoft Copilot seat growth accelerates, analysts say", category: "analyst", minutesAgo: 110, sentiment: "positive" },
-  { id: "n7", ticker: "SOUN", headline: "SoundHound AI drops as early investor trims stake", category: "regulatory", minutesAgo: 130, sentiment: "negative" },
-  { id: "n8", ticker: "XOM", headline: "Exxon steady as crude holds range ahead of inventory data", category: "macro", minutesAgo: 150, sentiment: "neutral" },
-  { id: "n9", ticker: "AMD", headline: "AMD's next-gen accelerator sampling ahead of schedule", category: "product", minutesAgo: 172, sentiment: "positive" },
-  { id: "n10", ticker: "RIVN", headline: "Rivian cuts production guidance on demand softness", category: "earnings", minutesAgo: 205, sentiment: "negative" },
-];
 
 // ---------------- Learning glossary ----------------
 

@@ -36,16 +36,6 @@ export type Scenario = {
   rangeHighPct: number;
 };
 
-export type NewsItem = {
-  id: string;
-  ticker: string;
-  headline: string;
-  category: "earnings" | "macro" | "analyst" | "product" | "regulatory";
-  minutesAgo: number;
-  sentiment: "positive" | "negative" | "neutral";
-};
-
-
 export type GlossaryTerm = {
   term: string;
   short: string;
