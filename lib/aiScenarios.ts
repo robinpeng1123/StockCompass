@@ -45,10 +45,13 @@ export async function getAIScenarios(stock: Stock): Promise<AIScenarioResult> {
   if (existing && existing.dateKey === dateKey) return existing.promise;
 
   const promise = computeAIScenarios(stock).catch(
-    (): AIScenarioResult => ({
-      scenarios: getHeuristicScenarios(stock.ticker),
-      source: "fallback",
-    })
+    (err): AIScenarioResult => {
+      console.error(`[aiScenarios] falling back for ${stock.ticker}:`, err);
+      return {
+        scenarios: getHeuristicScenarios(stock.ticker),
+        source: "fallback",
+      };
+    }
   );
   cache.set(cacheKey, { promise, dateKey });
   return promise;
