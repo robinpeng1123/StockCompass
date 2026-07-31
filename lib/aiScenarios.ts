@@ -105,7 +105,7 @@ Based on this real, current data, produce three one-month-ahead price scenarios 
     model: "claude-opus-5",
     max_tokens: 1024,
     output_config: {
-      effort: "medium",
+      effort: "low",
       format: zodOutputFormat(ScenariosResponseSchema),
     },
     messages: [{ role: "user", content: prompt }],
