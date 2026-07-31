@@ -7,9 +7,9 @@ import { useSession, signOut } from "next-auth/react";
 
 const NAV = [
   { href: "/", label: "Command Center", icon: NavIconGrid },
-  { href: "/market-stories", label: "Market Stories", icon: NavIconNews },
   { href: "/screener", label: "Stock Search", icon: NavIconSearch },
   { href: "/portfolio", label: "Portfolio Copilot", icon: NavIconShield },
+  { href: "/market-stories", label: "Market Stories", icon: NavIconNews },
   { href: "/learn", label: "Learn", icon: NavIconBook },
 ];
 
