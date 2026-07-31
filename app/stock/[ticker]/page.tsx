@@ -6,9 +6,7 @@ import { getCompanyNews, getEarnings, FinnhubError } from "@/lib/finnhub";
 import { formatMarketCap } from "@/lib/utils";
 import { PriceChart } from "@/components/ui/PriceChart";
 import { LiveStockHeaderPrice } from "@/components/ui/LiveStockHeaderPrice";
-import { PatternCard } from "@/components/PatternCard";
-import { RiskMeter } from "@/components/RiskMeter";
-import { AIScenarioSimulator } from "@/components/AIScenarioSimulator";
+import { AICoachPanel } from "@/components/AICoachPanel";
 import { StockNews } from "@/components/StockNews";
 import { StockEarnings } from "@/components/StockEarnings";
 import { CoachSection } from "@/components/CoachSection";
@@ -39,11 +37,7 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <CoachSection>
-        <AIScenarioSimulator ticker={stock.ticker} fallbackScenarios={scenarios} price={stock.price} volatility={stock.volatility} />
-        <div className="grid gap-6 lg:grid-cols-2">
-          <PatternCard pattern={pattern} ticker={stock.ticker} />
-          <RiskMeter stock={stock} />
-        </div>
+        <AICoachPanel stock={stock} fallbackScenarios={scenarios} fallbackPattern={pattern} />
       </CoachSection>
 
       <Link href="/screener" className="inline-block text-xs text-ink-muted hover:text-ink-primary">

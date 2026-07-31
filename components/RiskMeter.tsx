@@ -7,15 +7,35 @@ import { Meter } from "./ui/Meter";
 import { explainMomentum, explainOverall, explainRisk, explainVolatility } from "@/lib/scoring";
 import { cx } from "@/lib/utils";
 
-export function RiskMeter({ stock }: { stock: Stock }) {
+export type AIRiskOverride = {
+  risk: number;
+  momentum: number;
+  volatility: number;
+  overallScore: number;
+  riskExplain: string;
+  momentumExplain: string;
+  volatilityExplain: string;
+  overallExplain: string;
+};
+
+export function RiskMeter({ stock, ai }: { stock: Stock; ai?: AIRiskOverride }) {
+  const risk = ai?.risk ?? stock.risk;
+  const momentum = ai?.momentum ?? stock.momentum;
+  const volatility = ai?.volatility ?? stock.volatility;
+  const overallScore = ai?.overallScore ?? stock.aiScore;
+  const riskExplain = ai?.riskExplain || explainRisk(stock);
+  const momentumExplain = ai?.momentumExplain || explainMomentum(stock);
+  const volatilityExplain = ai?.volatilityExplain || explainVolatility(stock);
+  const overallExplain = ai?.overallExplain || explainOverall(stock);
+
   return (
     <Card>
       <CardHeader eyebrow={stock.ticker} title="AI Risk Meter" icon={<GaugeIcon />} />
 
       <div className="space-y-4">
-        <MeterRow label="Risk" value={stock.risk} color="status-critical" explain={explainRisk(stock)} />
-        <MeterRow label="Momentum" value={stock.momentum} color="status-good" explain={explainMomentum(stock)} />
-        <MeterRow label="Volatility" value={stock.volatility} color="status-warning" explain={explainVolatility(stock)} />
+        <MeterRow label="Risk" value={risk} color="status-critical" explain={riskExplain} />
+        <MeterRow label="Momentum" value={momentum} color="status-good" explain={momentumExplain} />
+        <MeterRow label="Volatility" value={volatility} color="status-warning" explain={volatilityExplain} />
       </div>
 
       <div className="my-4 h-px bg-white/[0.06]" />
@@ -24,18 +44,18 @@ export function RiskMeter({ stock }: { stock: Stock }) {
         <div>
           <div className="text-xs font-medium text-ink-muted">Overall AI Score</div>
           <div className="mt-0.5 text-3xl font-semibold tracking-tight text-ink-primary">
-            {stock.aiScore}
+            {overallScore}
             <span className="text-base font-medium text-ink-muted">/100</span>
           </div>
         </div>
         <div className="h-2 w-28 overflow-hidden rounded-full bg-white/[0.07]">
           <div
             className="h-full rounded-full bg-gradient-to-r from-accent-cyan to-accent-violet"
-            style={{ width: `${stock.aiScore}%` }}
+            style={{ width: `${overallScore}%` }}
           />
         </div>
       </div>
-      <p className="mt-2 text-xs leading-relaxed text-ink-secondary">{explainOverall(stock)}</p>
+      <p className="mt-2 text-xs leading-relaxed text-ink-secondary">{overallExplain}</p>
     </Card>
   );
 }

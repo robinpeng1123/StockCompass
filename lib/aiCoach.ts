@@ -1,0 +1,212 @@
+import "server-only";
+import Anthropic from "@anthropic-ai/sdk";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import { z } from "zod";
+import { Pattern, Scenario, Stock } from "./types";
+import { getCompanyNews, getEarnings } from "./finnhub";
+import { getPattern as getHeuristicPattern, getScenarios as getHeuristicScenarios } from "./mockData";
+
+const ScenarioSchema = z.object({
+  label: z.enum(["Bullish", "Neutral", "Bearish"]),
+  trigger: z
+    .string()
+    .describe(
+      "One concise sentence: the specific condition that would produce this outcome, grounded in the news/earnings/fundamentals provided — not generic language."
+    ),
+  probabilityPct: z.number().describe("Whole-number percent chance of this scenario (0-100)."),
+  rangeLowPct: z.number().describe("Low end of the expected one-month price change, as a percent (can be negative)."),
+  rangeHighPct: z.number().describe("High end of the expected one-month price change, as a percent (can be negative)."),
+});
+
+const PatternSchema = z.object({
+  name: z.string().describe("Short name for the chart/technical setup, e.g. 'Bull Flag', 'Ascending Triangle', 'Range-bound Consolidation'."),
+  direction: z.enum(["bullish", "bearish", "neutral"]),
+  confidencePct: z.number().describe("Whole-number confidence (0-100) in this read of the setup."),
+  explanation: z.string().describe("2-3 sentences on why this pattern matters, grounded in the actual price action and data given — not generic."),
+  historicalStat: z.string().describe("One sentence citing a plausible historical base rate for how this kind of setup has resolved."),
+});
+
+const RiskSchema = z.object({
+  riskScore: z.number().describe("0-100, higher = riskier (valuation, sector, drawdown potential)."),
+  momentumScore: z.number().describe("0-100, higher = stronger recent trend."),
+  volatilityScore: z.number().describe("0-100, higher = choppier day-to-day moves."),
+  overallScore: z.number().describe("0-100 composite AI score blending the above with fundamentals."),
+  riskExplain: z.string().describe("1-2 sentences grounding the risk score in this stock's specific fundamentals/sector."),
+  momentumExplain: z.string().describe("1-2 sentences grounding the momentum score in the recent price action given."),
+  volatilityExplain: z.string().describe("1-2 sentences grounding the volatility score in the data given."),
+  overallExplain: z.string().describe("1-2 sentences summarizing why the composite score is what it is."),
+});
+
+const CoachResponseSchema = z.object({
+  pattern: PatternSchema,
+  risk: RiskSchema,
+  scenarios: z
+    .array(ScenarioSchema)
+    .length(3)
+    .describe("Exactly one Bullish, one Neutral, and one Bearish scenario, in that order. Probabilities should sum to about 100."),
+});
+
+export type AICoachResult = {
+  scenarios: Scenario[];
+  pattern: Pattern;
+  risk: {
+    risk: number;
+    momentum: number;
+    volatility: number;
+    overallScore: number;
+    riskExplain: string;
+    momentumExplain: string;
+    volatilityExplain: string;
+    overallExplain: string;
+  };
+  source: "ai" | "fallback";
+};
+
+type CacheEntry = { promise: Promise<AICoachResult>; dateKey: string };
+const cache = new Map<string, CacheEntry>();
+
+function todayKey() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function todayLabel() {
+  return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function fallbackResult(ticker: string, stock: Stock): AICoachResult {
+  return {
+    scenarios: getHeuristicScenarios(ticker),
+    pattern: getHeuristicPattern(ticker),
+    risk: {
+      risk: stock.risk,
+      momentum: stock.momentum,
+      volatility: stock.volatility,
+      overallScore: stock.aiScore,
+      riskExplain: "",
+      momentumExplain: "",
+      volatilityExplain: "",
+      overallExplain: "",
+    },
+    source: "fallback",
+  };
+}
+
+// Generates the Prediction Simulator scenarios, AI Pattern Detection, and AI Risk
+// Meter all from one Claude call grounded in a stock's live news/earnings/
+// fundamentals, falling back to the static heuristics on any failure (missing
+// key, refusal, parse error, rate limit, timeout). Cached once per ticker per
+// day so repeated "Coach Me!" clicks don't re-spend tokens.
+export async function getAICoachAnalysis(stock: Stock): Promise<AICoachResult> {
+  const dateKey = todayKey();
+  const cacheKey = stock.ticker.toUpperCase();
+  const existing = cache.get(cacheKey);
+  if (existing && existing.dateKey === dateKey) return existing.promise;
+
+  const promise = computeAICoach(stock).catch((err): AICoachResult => {
+    console.error(`[aiCoach] falling back for ${stock.ticker}:`, err);
+    return fallbackResult(stock.ticker, stock);
+  });
+  cache.set(cacheKey, { promise, dateKey });
+  return promise;
+}
+
+async function computeAICoach(stock: Stock): Promise<AICoachResult> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
+
+  const [news, earnings] = await Promise.all([
+    getCompanyNews(stock.ticker).catch(() => []),
+    getEarnings(stock.ticker).catch(() => []),
+  ]);
+
+  const newsSummary =
+    news
+      .slice(0, 6)
+      .map((n) => `- ${n.headline} (${n.source}, ${new Date(n.datetime * 1000).toDateString()})`)
+      .join("\n") || "No recent news available.";
+
+  const earningsSummary =
+    earnings
+      .slice(0, 3)
+      .map((e) => `- ${e.period}: actual ${e.actual ?? "N/A"} vs estimate ${e.estimate ?? "N/A"}`)
+      .join("\n") || "No recent earnings data available.";
+
+  const prompt = `You are a financial-education assistant generating illustrative, transparent AI analysis (not investment advice) for a stock coaching app. You produce three things from the same data: pattern detection, a risk/momentum/volatility read, and scenario predictions.
+
+Ticker: ${stock.ticker} (${stock.name})
+Sector: ${stock.sector}
+Current price: $${stock.price.toFixed(2)}
+Change today: ${stock.changePct.toFixed(2)}%
+P/E ratio: ${stock.peRatio ?? "N/A"}
+Dividend yield: ${stock.dividendYieldPct.toFixed(2)}%
+Market cap: $${stock.marketCapB.toFixed(1)}B
+Recent daily closes (oldest to newest): ${stock.history.slice(-15).map((h) => h.toFixed(2)).join(", ")}
+
+Recent news:
+${newsSummary}
+
+Recent earnings:
+${earningsSummary}
+
+Produce all three of the following, grounded in the specific data above wherever possible — avoid generic language:
+
+1. Pattern: identify the chart/technical setup the recent closes suggest (e.g. a flag, triangle, channel, range-bound consolidation), its direction, a confidence percentage, why it matters, and a plausible historical base rate for that kind of setup.
+
+2. Risk: score risk, momentum, and volatility each 0-100 (higher = more of that quality), plus a 0-100 overall composite score, each with a short grounded explanation.
+
+3. Scenarios: three one-month-ahead price scenarios — Bullish, Neutral, and Bearish — each with a probability (summing to about 100) and a percent price-change range from today's price.
+
+Answer directly with the structured result — no exploratory reasoning needed, this is a quick synthesis of the data already given to you.`;
+
+  const client = new Anthropic({ apiKey, timeout: 25_000, maxRetries: 1 });
+
+  // Thinking is on by default for Opus 5, but this is a bounded synthesis of
+  // data already handed to the model, not a task that needs deep reasoning —
+  // disabling it keeps latency well inside the client timeout above and the
+  // API route's function duration limit.
+  const response = await client.messages.parse({
+    model: "claude-opus-5",
+    max_tokens: 1400,
+    thinking: { type: "disabled" },
+    output_config: {
+      effort: "low",
+      format: zodOutputFormat(CoachResponseSchema),
+    },
+    messages: [{ role: "user", content: prompt }],
+  });
+
+  if (response.stop_reason === "refusal" || !response.parsed_output) {
+    throw new Error("AI coach analysis was refused or returned no parsed output.");
+  }
+
+  const { pattern, risk, scenarios } = response.parsed_output;
+
+  return {
+    scenarios: scenarios.map((s) => ({
+      label: s.label,
+      trigger: s.trigger,
+      probabilityPct: Math.round(Math.min(100, Math.max(0, s.probabilityPct))),
+      rangeLowPct: s.rangeLowPct,
+      rangeHighPct: s.rangeHighPct,
+    })),
+    pattern: {
+      name: pattern.name,
+      confidencePct: Math.round(Math.min(100, Math.max(0, pattern.confidencePct))),
+      detectedOn: todayLabel(),
+      direction: pattern.direction,
+      explanation: pattern.explanation,
+      historicalStat: pattern.historicalStat,
+    },
+    risk: {
+      risk: Math.round(Math.min(100, Math.max(0, risk.riskScore))),
+      momentum: Math.round(Math.min(100, Math.max(0, risk.momentumScore))),
+      volatility: Math.round(Math.min(100, Math.max(0, risk.volatilityScore))),
+      overallScore: Math.round(Math.min(100, Math.max(0, risk.overallScore))),
+      riskExplain: risk.riskExplain,
+      momentumExplain: risk.momentumExplain,
+      volatilityExplain: risk.volatilityExplain,
+      overallExplain: risk.overallExplain,
+    },
+    source: "ai",
+  };
+}

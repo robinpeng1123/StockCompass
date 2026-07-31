@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getLiveStock } from "@/lib/liveStock";
-import { getAIScenarios } from "@/lib/aiScenarios";
+import { getAICoachAnalysis } from "@/lib/aiCoach";
 import { FinnhubError } from "@/lib/finnhub";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +24,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ ticker:
     return NextResponse.json({ error: "Failed to load stock data." }, { status: 502 });
   }
 
-  const result = await getAIScenarios(stock);
+  const result = await getAICoachAnalysis(stock);
   return NextResponse.json(result);
 }
