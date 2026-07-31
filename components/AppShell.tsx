@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
+import { Logo } from "@/components/ui/Logo";
 
 const NAV = [
   { href: "/", label: "Command Center", icon: NavIconGrid },
@@ -21,9 +22,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
       <div className="mx-auto flex max-w-[1440px]">
         <aside className="sticky top-0 hidden h-screen w-[240px] shrink-0 flex-col border-r border-white/[0.06] bg-plane/60 backdrop-blur-xl lg:flex">
           <div className="flex items-center gap-2 px-6 py-6">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-accent-cyan to-accent-violet shadow-glow">
-              <span className="text-sm font-bold text-plane">SC</span>
-            </div>
+            <Logo />
             <div>
               <div className="text-sm font-semibold tracking-tight text-ink-primary">StockCompass</div>
               <div className="text-[11px] text-ink-muted">AI Trading Coach</div>
@@ -52,7 +51,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
             })}
           </nav>
 
-          <div className="px-3 pb-1">
+          <div className="px-3 pb-1 space-y-1">
             <Link
               href="/settings"
               className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
@@ -64,6 +63,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
               <NavIconSettings active={pathname === "/settings"} />
               Settings
             </Link>
+            <a
+              href="mailto:StockCompass0@gmail.com"
+              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-ink-secondary transition-colors hover:bg-white/[0.03] hover:text-ink-primary"
+            >
+              <NavIconFlag />
+              Report a problem
+            </a>
           </div>
 
           <div className="m-3 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
@@ -136,9 +142,7 @@ function TopBar() {
   return (
     <header className="sticky top-0 z-30 flex items-center gap-4 border-b border-white/[0.06] bg-plane/70 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
       <div className="flex items-center gap-2 lg:hidden">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-accent-cyan to-accent-violet">
-          <span className="text-xs font-bold text-plane">SC</span>
-        </div>
+        <Logo className="h-8 w-8" />
       </div>
       <div className="ml-auto flex items-center gap-3">
         <div className="hidden items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-ink-secondary sm:flex">
@@ -187,6 +191,14 @@ function TopBar() {
   );
 }
 
+function NavIconFlag() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className="opacity-70">
+      <path d="M4 2.5v13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M4 3.2c2.4-1.2 4.4-1.2 6.4 0 2 1.2 4 1.2 3.6-.2v6.6c0 1.7-2 1.7-3.6.5-2-1.4-4-1.4-6.4 0V3.2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
 function NavIconSettings({ active }: { active?: boolean }) {
   return (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={active ? "opacity-100" : "opacity-70"}>

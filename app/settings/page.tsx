@@ -9,6 +9,28 @@ import { saveWatchlist } from "@/lib/watchlist";
 export default function SettingsPage() {
   const { data: session, status } = useSession();
   const [cleared, setCleared] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  async function handleDeleteAccount() {
+    if (
+      !window.confirm(
+        "Delete your account? This permanently removes your profile, synced portfolio, and sign-in — this can't be undone."
+      )
+    ) {
+      return;
+    }
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch("/api/account", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete account.");
+      await signOut({ callbackUrl: "/" });
+    } catch {
+      setDeleteError("Something went wrong deleting your account. Try again.");
+      setDeleting(false);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
@@ -66,6 +88,23 @@ export default function SettingsPage() {
           </p>
         )}
       </Card>
+
+      {status === "authenticated" && (
+        <Card>
+          <CardHeader eyebrow="Danger Zone" title="Delete account" />
+          <p className="mb-3 text-sm leading-relaxed text-ink-secondary">
+            Permanently deletes your profile, sign-in, and synced portfolio holdings. This can&apos;t be undone.
+          </p>
+          <button
+            onClick={handleDeleteAccount}
+            disabled={deleting}
+            className="rounded-xl border border-status-critical/30 bg-status-critical/[0.06] px-4 py-2 text-xs font-semibold text-status-critical hover:bg-status-critical/[0.1] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {deleting ? "Deleting…" : "Delete account"}
+          </button>
+          {deleteError && <p className="mt-2 text-xs text-status-critical">{deleteError}</p>}
+        </Card>
+      )}
 
       <Card>
         <CardHeader eyebrow="About" title="StockCompass" />
