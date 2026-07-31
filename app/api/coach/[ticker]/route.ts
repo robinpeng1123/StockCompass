@@ -5,10 +5,10 @@ import { FinnhubError } from "@/lib/finnhub";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-// Claude's reasoning can take longer than a serverless function's default
-// timeout, which surfaces to the client as a generic "fetch failed" /
-// SocketError once Vercel kills the function mid-request. Give it headroom
-// beyond the client-side timeout set on the Anthropic call itself.
+// The AI call can take longer than a serverless function's default timeout,
+// which surfaces to the client as a generic "fetch failed" / SocketError
+// once Vercel kills the function mid-request. Give it headroom beyond the
+// client-side timeout set on the OpenAI call itself.
 export const maxDuration = 60;
 
 export async function GET(_req: Request, { params }: { params: Promise<{ ticker: string }> }) {

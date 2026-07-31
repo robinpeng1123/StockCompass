@@ -1,6 +1,6 @@
 import "server-only";
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+import OpenAI from "openai";
+import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { Pattern, Scenario, Stock } from "./types";
 import { getCompanyNews, getEarnings } from "./finnhub";
@@ -92,7 +92,7 @@ function fallbackResult(ticker: string, stock: Stock): AICoachResult {
 }
 
 // Generates the Prediction Simulator scenarios, AI Pattern Detection, and AI Risk
-// Meter all from one Claude call grounded in a stock's live news/earnings/
+// Meter all from one OpenAI call grounded in a stock's live news/earnings/
 // fundamentals, falling back to the static heuristics on any failure (missing
 // key, refusal, parse error, rate limit, timeout). Cached once per ticker per
 // day so repeated "Coach Me!" clicks don't re-spend tokens.
@@ -111,8 +111,8 @@ export async function getAICoachAnalysis(stock: Stock): Promise<AICoachResult> {
 }
 
 async function computeAICoach(stock: Stock): Promise<AICoachResult> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set.");
 
   const [news, earnings] = await Promise.all([
     getCompanyNews(stock.ticker).catch(() => []),
@@ -158,28 +158,26 @@ Produce all three of the following, grounded in the specific data above wherever
 
 Answer directly with the structured result — no exploratory reasoning needed, this is a quick synthesis of the data already given to you.`;
 
-  const client = new Anthropic({ apiKey, timeout: 25_000, maxRetries: 1 });
+  const client = new OpenAI({ apiKey, timeout: 25_000, maxRetries: 1 });
 
-  // Thinking is on by default for Opus 5, but this is a bounded synthesis of
-  // data already handed to the model, not a task that needs deep reasoning —
-  // disabling it keeps latency well inside the client timeout above and the
-  // API route's function duration limit.
-  const response = await client.messages.parse({
-    model: "claude-opus-5",
-    max_tokens: 1400,
-    thinking: { type: "disabled" },
-    output_config: {
-      effort: "low",
-      format: zodOutputFormat(CoachResponseSchema),
-    },
+  // Reasoning is on by default for GPT-5.6, but this is a bounded synthesis
+  // of data already handed to the model, not a task that needs deep
+  // reasoning — effort "none" keeps latency well inside the client timeout
+  // above and the API route's function duration limit.
+  const completion = await client.chat.completions.parse({
+    model: "gpt-5.6-luna",
+    reasoning_effort: "none",
+    max_completion_tokens: 1400,
+    response_format: zodResponseFormat(CoachResponseSchema, "coach_analysis"),
     messages: [{ role: "user", content: prompt }],
   });
 
-  if (response.stop_reason === "refusal" || !response.parsed_output) {
+  const message = completion.choices[0]?.message;
+  if (!message || message.refusal || !message.parsed) {
     throw new Error("AI coach analysis was refused or returned no parsed output.");
   }
 
-  const { pattern, risk, scenarios } = response.parsed_output;
+  const { pattern, risk, scenarios } = message.parsed;
 
   return {
     scenarios: scenarios.map((s) => ({
