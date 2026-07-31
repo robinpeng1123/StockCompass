@@ -72,6 +72,7 @@ export function ScenarioMiniChart({
   }
 
   const hover = hoverIdx !== null ? points[hoverIdx] : null;
+  const hoverPct = hover ? (hover[0] / width) * 100 : 0;
 
   return (
     <div className="relative">
@@ -105,8 +106,10 @@ export function ScenarioMiniChart({
 
       {hover && hoverIdx !== null && (
         <div
-          className="pointer-events-none absolute top-0 -translate-x-1/2 rounded-lg border border-white/10 bg-surface-raised px-2 py-1 text-[11px] shadow-lg"
-          style={{ left: `${(hover[0] / width) * 100}%` }}
+          className={`pointer-events-none absolute top-0 rounded-lg border border-white/10 bg-surface-raised px-2 py-1 text-[11px] shadow-lg ${
+            hoverPct < 15 ? "translate-x-0" : hoverPct > 85 ? "-translate-x-full" : "-translate-x-1/2"
+          }`}
+          style={{ left: `${hoverPct}%` }}
         >
           <div className="font-semibold text-ink-primary">{formatPrice(path[hoverIdx])}</div>
           <div className="text-[9px] text-ink-muted">{hoverIdx === 0 ? "Today" : hoverIdx === n ? "Month-end" : `Day ${hoverIdx}`}</div>

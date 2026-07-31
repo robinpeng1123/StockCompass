@@ -1,4 +1,4 @@
-import { GlossaryTerm, NewsItem, Pattern, Scenario, StoryEvent } from "./types";
+import { GlossaryTerm, NewsItem, Pattern, Scenario } from "./types";
 
 // ---------------- Patterns (AI pattern-detection explanations) ----------------
 
@@ -101,33 +101,6 @@ const DEFAULT_SCENARIOS: Scenario[] = [
 
 export function getScenarios(ticker: string): Scenario[] {
   return SCENARIOS[ticker.toUpperCase()] ?? DEFAULT_SCENARIOS;
-}
-
-// ---------------- Market storytelling timelines ----------------
-
-export const STORY_EVENTS: Record<string, StoryEvent[]> = {
-  NVDA: [
-    { date: "Jul 12", kind: "news", title: "Export-rule clarity", detail: "Commerce Dept. clarified export terms for AI chips to select markets, easing a key overhang.", priceImpactPct: 3.1 },
-    { date: "Jul 18", kind: "macro", title: "Rates hold steady", detail: "The Fed held rates unchanged; growth stocks broadly caught a bid as discount-rate fears eased.", priceImpactPct: 1.4 },
-    { date: "Jul 22", kind: "technical", title: "Reclaimed the 50-day average", detail: "Price closed back above its 50-day moving average on rising volume, flipping short-term trend bullish.", priceImpactPct: 2.0 },
-    { date: "Jul 26", kind: "technical", title: "Bull flag forms", detail: "A tight, low-volume pause after the rally — the AI model flagged it as continuation, not reversal.", priceImpactPct: 0.6 },
-  ],
-  TSLA: [
-    { date: "Jul 10", kind: "product", title: "Robotaxi expansion", detail: "Company confirmed service-area expansion in a second metro market, ahead of some analyst timelines.", priceImpactPct: 4.2 },
-    { date: "Jul 17", kind: "earnings", title: "Delivery numbers beat", detail: "Quarterly deliveries came in above the whisper number despite a tougher pricing environment.", priceImpactPct: 5.6 },
-    { date: "Jul 21", kind: "analyst", title: "Price target raised", detail: "A major bank raised its target citing optionality in energy storage and autonomy.", priceImpactPct: 2.8 },
-    { date: "Jul 25", kind: "technical", title: "Ascending triangle", detail: "Higher lows against flat resistance — compression the model flags as likely to resolve upward.", priceImpactPct: 1.1 },
-  ],
-};
-
-const DEFAULT_STORY: StoryEvent[] = [
-  { date: "Jul 14", kind: "macro", title: "Sector rotation", detail: "Capital rotated into this sector as investors repositioned ahead of upcoming data.", priceImpactPct: 1.8 },
-  { date: "Jul 20", kind: "news", title: "Industry headline", detail: "A widely read industry report shifted sentiment modestly positive.", priceImpactPct: 0.9 },
-  { date: "Jul 26", kind: "technical", title: "Technical setup forms", detail: "Price action produced a recognizable pattern that the AI model is now tracking.", priceImpactPct: 0.5 },
-];
-
-export function getStory(ticker: string): StoryEvent[] {
-  return STORY_EVENTS[ticker.toUpperCase()] ?? DEFAULT_STORY;
 }
 
 // ---------------- News ----------------

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getPattern, getScenarios, getStory } from "@/lib/mockData";
+import { getPattern, getScenarios } from "@/lib/mockData";
 import { getLiveStock } from "@/lib/liveStock";
 import { getCompanyNews, getEarnings, FinnhubError } from "@/lib/finnhub";
 import { formatMarketCap } from "@/lib/utils";
@@ -9,7 +9,6 @@ import { LiveStockHeaderPrice } from "@/components/ui/LiveStockHeaderPrice";
 import { PatternCard } from "@/components/PatternCard";
 import { RiskMeter } from "@/components/RiskMeter";
 import { AIScenarioSimulator } from "@/components/AIScenarioSimulator";
-import { MarketStory } from "@/components/MarketStory";
 import { StockNews } from "@/components/StockNews";
 import { StockEarnings } from "@/components/StockEarnings";
 import { CoachSection } from "@/components/CoachSection";
@@ -36,7 +35,6 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
 
   const pattern = getPattern(stock.ticker);
   const scenarios = getScenarios(stock.ticker);
-  const story = getStory(stock.ticker);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -85,8 +83,6 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
         <StockNews ticker={stock.ticker} news={news} />
         <StockEarnings ticker={stock.ticker} earnings={earnings} />
       </div>
-
-      <MarketStory ticker={stock.ticker} events={story} />
     </div>
   );
 }

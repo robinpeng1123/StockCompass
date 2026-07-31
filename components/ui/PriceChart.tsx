@@ -88,6 +88,7 @@ export function PriceChart({ ticker }: { ticker: string }) {
   }
 
   const hover = hoverIdx !== null ? xy[hoverIdx] : null;
+  const hoverPct = hover ? (hover[0] / width) * 100 : 0;
 
   return (
     <div>
@@ -149,8 +150,10 @@ export function PriceChart({ ticker }: { ticker: string }) {
 
         {hover && hoverIdx !== null && !loading && (
           <div
-            className="pointer-events-none absolute top-0 -translate-x-1/2 rounded-lg border border-white/10 bg-surface-raised px-2.5 py-1.5 text-xs shadow-lg"
-            style={{ left: `${(hover[0] / width) * 100}%` }}
+            className={`pointer-events-none absolute top-0 rounded-lg border border-white/10 bg-surface-raised px-2.5 py-1.5 text-xs shadow-lg ${
+              hoverPct < 12 ? "translate-x-0" : hoverPct > 88 ? "-translate-x-full" : "-translate-x-1/2"
+            }`}
+            style={{ left: `${hoverPct}%` }}
           >
             <div className="font-semibold text-ink-primary">{formatPrice(data[hoverIdx])}</div>
             <div className="text-[10px] text-ink-muted">{formatAxisDate(points[hoverIdx].t, rangeKey)}</div>

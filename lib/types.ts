@@ -45,13 +45,6 @@ export type NewsItem = {
   sentiment: "positive" | "negative" | "neutral";
 };
 
-export type StoryEvent = {
-  date: string;
-  kind: "news" | "earnings" | "technical" | "macro" | "product" | "analyst";
-  title: string;
-  detail: string;
-  priceImpactPct: number;
-};
 
 export type GlossaryTerm = {
   term: string;

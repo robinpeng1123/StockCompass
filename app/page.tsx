@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getPattern, getScenarios, getStory } from "@/lib/mockData";
+import { getPattern, getScenarios } from "@/lib/mockData";
 import { getLiveStock } from "@/lib/liveStock";
 import { getLiveIndices } from "@/lib/liveIndices";
 import { getSpotlightTicker } from "@/lib/spotlight";
@@ -9,7 +9,6 @@ import { FeatureStrip } from "@/components/FeatureStrip";
 import { PatternCard } from "@/components/PatternCard";
 import { RiskMeter } from "@/components/RiskMeter";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
-import { MarketStory } from "@/components/MarketStory";
 import { TrendingNews } from "@/components/TrendingNews";
 import { PortfolioCopilot } from "@/components/PortfolioCopilot";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -22,7 +21,6 @@ export default async function DashboardPage() {
   const [spotlight, indices] = await Promise.all([getLiveStock(spotlightTicker), getLiveIndices()]);
   const pattern = getPattern(spotlightTicker);
   const scenarios = getScenarios(spotlightTicker);
-  const story = getStory(spotlightTicker);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -69,10 +67,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <ScenarioSimulator ticker={spotlight.ticker} scenarios={scenarios} price={spotlight.price} volatility={spotlight.volatility} />
-        <MarketStory ticker={spotlight.ticker} events={story} />
-      </div>
+      <ScenarioSimulator ticker={spotlight.ticker} scenarios={scenarios} price={spotlight.price} volatility={spotlight.volatility} />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <PortfolioCopilot />
