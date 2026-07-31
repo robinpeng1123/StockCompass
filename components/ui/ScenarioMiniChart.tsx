@@ -8,9 +8,10 @@ import { generateProjectionPath } from "@/lib/projectionPath";
 /**
  * One scenario's own compact chart: today's real price anchors the left
  * edge, a jagged (not straight) simulated path runs to that scenario's
- * target price at the right edge — no history shown here, no client fetch,
- * everything comes from props already available on the page. Seeded by
- * ticker + scenario + date, so it's stable all day and reshapes tomorrow.
+ * target price ~30 days out (labeled with a real calendar date) at the
+ * right edge — no history shown here, no client fetch, everything comes
+ * from props already available on the page. Seeded by ticker + scenario +
+ * date, so it's stable all day and reshapes tomorrow.
  */
 export function ScenarioMiniChart({
   ticker,
@@ -38,12 +39,16 @@ export function ScenarioMiniChart({
 
   const now = new Date();
   const dateKey = now.toISOString().slice(0, 10);
-  const monthEnd = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0);
-  const daysRemaining = Math.max(1, Math.min(31, Math.round((monthEnd - now.getTime()) / 86_400_000)));
+  // A rolling one-month horizon from today (matching the scenario's own
+  // "one-month-ahead" framing) rather than whatever's left in the calendar
+  // month — so the end date is always ~30 days out, not a few days away
+  // right before month-end.
+  const horizonDays = 30;
+  const endDate = new Date(now.getTime() + horizonDays * 86_400_000);
+  const fmtDate = (d: Date) => d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   // Plot week-over-week rather than day-over-day — fewer, bigger steps read as
-  // a much more jagged zigzag than a smoothed-out daily line. Floored at 3 so
-  // the path still has room to zigzag even in the last few days of the month.
-  const weeksRemaining = Math.max(3, Math.round(daysRemaining / 7));
+  // a much more jagged zigzag than a smoothed-out daily line.
+  const weeks = Math.max(3, Math.round(horizonDays / 7));
 
   const midpointPct = (scenario.rangeLowPct + scenario.rangeHighPct) / 2;
   const targetPrice = price * (1 + midpointPct / 100);
@@ -55,7 +60,7 @@ export function ScenarioMiniChart({
     dateKey,
     startPrice: price,
     endPrice: targetPrice,
-    days: weeksRemaining,
+    days: weeks,
     dailyVolatilityPct: weeklyVolPct,
   });
 
@@ -89,7 +94,7 @@ export function ScenarioMiniChart({
         onPointerMove={handleMove}
         onPointerLeave={() => setHoverIdx(null)}
         role="img"
-        aria-label={`${scenario.label} simulated path from today's price to a month-end estimate`}
+        aria-label={`${scenario.label} simulated path from today's price to a ${fmtDate(endDate)} estimate`}
       >
         <defs>
           <linearGradient id={`mini-fill-${id}`} x1="0" y1="0" x2="0" y2="1">
@@ -117,14 +122,16 @@ export function ScenarioMiniChart({
           style={{ left: `${hoverPct}%` }}
         >
           <div className="font-semibold text-ink-primary">{formatPrice(path[hoverIdx])}</div>
-          <div className="text-[9px] text-ink-muted">{hoverIdx === 0 ? "Today" : hoverIdx === n ? "Month-end" : `Week ${hoverIdx}`}</div>
+          <div className="text-[9px] text-ink-muted">
+            {hoverIdx === 0 ? "Today" : fmtDate(new Date(now.getTime() + (hoverIdx / n) * horizonDays * 86_400_000))}
+          </div>
         </div>
       )}
 
       <div className="mt-1 flex justify-between text-[10px] text-ink-muted">
         <span>Today · {formatPrice(price)}</span>
         <span className="font-medium" style={{ color }}>
-          {formatPrice(targetPrice)}
+          {fmtDate(endDate)} · {formatPrice(targetPrice)}
         </span>
       </div>
     </div>

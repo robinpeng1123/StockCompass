@@ -73,7 +73,7 @@ export function ScenarioSimulator({
       </div>
 
       <p className="mt-5 text-[11px] leading-relaxed text-ink-muted">
-        Each path is a simulated month-end estimate for that scenario, not a guarantee — markets don&apos;t owe any
+        Each path is a simulated ~30-day-out estimate for that scenario, not a guarantee — markets don&apos;t owe any
         scenario its stated odds.
       </p>
     </Card>
