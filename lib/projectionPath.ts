@@ -28,11 +28,11 @@ export function generateProjectionPath({
   // Two noise components — a slow-ish wander plus a sharper per-step jitter —
   // read as a genuinely jagged path rather than one smooth wave.
   const walk = [0];
-  for (let i = 1; i <= n; i++) walk.push(walk[i - 1] + (rand() - 0.5) * 2.4 + (rand() - 0.5) * 1.4);
+  for (let i = 1; i <= n; i++) walk.push(walk[i - 1] + (rand() - 0.5) * 3 + (rand() - 0.5) * 1.8);
   const wEnd = walk[n];
   const bridge = walk.map((w, i) => w - (i / n) * wEnd);
 
-  const JAGGEDNESS = 1.9;
+  const JAGGEDNESS = 2.4;
   const stdevDecimal = Math.max(0.008, dailyVolatilityPct / 100);
   const scale = startPrice * stdevDecimal * JAGGEDNESS;
 

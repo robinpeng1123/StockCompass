@@ -40,18 +40,23 @@ export function ScenarioMiniChart({
   const dateKey = now.toISOString().slice(0, 10);
   const monthEnd = Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0);
   const daysRemaining = Math.max(1, Math.min(31, Math.round((monthEnd - now.getTime()) / 86_400_000)));
+  // Plot week-over-week rather than day-over-day — fewer, bigger steps read as
+  // a much more jagged zigzag than a smoothed-out daily line. Floored at 3 so
+  // the path still has room to zigzag even in the last few days of the month.
+  const weeksRemaining = Math.max(3, Math.round(daysRemaining / 7));
 
   const midpointPct = (scenario.rangeLowPct + scenario.rangeHighPct) / 2;
   const targetPrice = price * (1 + midpointPct / 100);
   const dailyVolPct = Math.min(5, Math.max(0.3, volatilityScore / 20));
+  const weeklyVolPct = dailyVolPct * Math.sqrt(7);
 
   const path = generateProjectionPath({
     ticker: `${ticker}:${scenario.label}`,
     dateKey,
     startPrice: price,
     endPrice: targetPrice,
-    days: daysRemaining,
-    dailyVolatilityPct: dailyVolPct,
+    days: weeksRemaining,
+    dailyVolatilityPct: weeklyVolPct,
   });
 
   const min = Math.min(...path);
@@ -112,7 +117,7 @@ export function ScenarioMiniChart({
           style={{ left: `${hoverPct}%` }}
         >
           <div className="font-semibold text-ink-primary">{formatPrice(path[hoverIdx])}</div>
-          <div className="text-[9px] text-ink-muted">{hoverIdx === 0 ? "Today" : hoverIdx === n ? "Month-end" : `Day ${hoverIdx}`}</div>
+          <div className="text-[9px] text-ink-muted">{hoverIdx === 0 ? "Today" : hoverIdx === n ? "Month-end" : `Week ${hoverIdx}`}</div>
         </div>
       )}
 
