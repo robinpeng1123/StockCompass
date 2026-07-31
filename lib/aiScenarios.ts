@@ -36,23 +36,21 @@ function todayKey() {
 
 // Generates scenario analysis grounded in a stock's live news/earnings/fundamentals
 // via Claude, falling back to the static heuristic scenarios on any failure (missing
-// key, refusal, parse error, rate limit). Cached once per ticker per day so repeated
-// "Coach Me!" clicks don't re-spend tokens.
+// key, refusal, parse error, rate limit, timeout). Cached once per ticker per day so
+// repeated "Coach Me!" clicks don't re-spend tokens.
 export async function getAIScenarios(stock: Stock): Promise<AIScenarioResult> {
   const dateKey = todayKey();
   const cacheKey = stock.ticker.toUpperCase();
   const existing = cache.get(cacheKey);
   if (existing && existing.dateKey === dateKey) return existing.promise;
 
-  const promise = computeAIScenarios(stock).catch(
-    (err): AIScenarioResult => {
-      console.error(`[aiScenarios] falling back for ${stock.ticker}:`, err);
-      return {
-        scenarios: getHeuristicScenarios(stock.ticker),
-        source: "fallback",
-      };
-    }
-  );
+  const promise = computeAIScenarios(stock).catch((err): AIScenarioResult => {
+    console.error(`[aiScenarios] falling back for ${stock.ticker}:`, err);
+    return {
+      scenarios: getHeuristicScenarios(stock.ticker),
+      source: "fallback",
+    };
+  });
   cache.set(cacheKey, { promise, dateKey });
   return promise;
 }
@@ -68,13 +66,13 @@ async function computeAIScenarios(stock: Stock): Promise<AIScenarioResult> {
 
   const newsSummary =
     news
-      .slice(0, 8)
+      .slice(0, 6)
       .map((n) => `- ${n.headline} (${n.source}, ${new Date(n.datetime * 1000).toDateString()})`)
       .join("\n") || "No recent news available.";
 
   const earningsSummary =
     earnings
-      .slice(0, 4)
+      .slice(0, 3)
       .map((e) => `- ${e.period}: actual ${e.actual ?? "N/A"} vs estimate ${e.estimate ?? "N/A"}`)
       .join("\n") || "No recent earnings data available.";
 
@@ -97,13 +95,20 @@ ${newsSummary}
 Recent earnings:
 ${earningsSummary}
 
-Based on this real, current data, produce three one-month-ahead price scenarios — Bullish, Neutral, and Bearish. Ground each trigger condition in the specific news/earnings/fundamentals above wherever possible. Probabilities should sum to about 100. Ranges are percent price changes from today's price over the next month.`;
+Based on this real, current data, produce three one-month-ahead price scenarios — Bullish, Neutral, and Bearish. Ground each trigger condition in the specific news/earnings/fundamentals above wherever possible. Probabilities should sum to about 100. Ranges are percent price changes from today's price over the next month.
 
-  const client = new Anthropic({ apiKey });
+Answer directly with the structured result — no exploratory reasoning needed, this is a quick synthesis of the data already given to you.`;
 
+  const client = new Anthropic({ apiKey, timeout: 25_000, maxRetries: 1 });
+
+  // Thinking is on by default for Opus 5, but this task is a quick, bounded
+  // synthesis of data already handed to the model — not a task that benefits
+  // from deep reasoning. Disabling it keeps latency well inside both the
+  // client timeout above and the API route's function duration limit.
   const response = await client.messages.parse({
     model: "claude-opus-5",
-    max_tokens: 1024,
+    max_tokens: 700,
+    thinking: { type: "disabled" },
     output_config: {
       effort: "low",
       format: zodOutputFormat(ScenariosResponseSchema),
