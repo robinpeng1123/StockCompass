@@ -16,6 +16,25 @@ function makeClient() {
   return new PrismaClient({ adapter });
 }
 
-export const prisma = globalForPrisma.prisma ?? makeClient();
+function getClient(): PrismaClient {
+  if (!globalForPrisma.prisma) {
+    const client = makeClient();
+    if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = client;
+    return client;
+  }
+  return globalForPrisma.prisma;
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+// A lazy proxy: touching `prisma` itself never throws, only calling a method
+// on it does. Next.js imports every API route module during the build's
+// page-data-collection step (even for routes rendered dynamically at
+// request time), so eagerly constructing the client at module load would
+// break builds whenever no database is configured yet — which is expected
+// before a Postgres integration is connected on Vercel.
+export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
+  get(_target, prop) {
+    const client = getClient();
+    const value = Reflect.get(client as object, prop);
+    return typeof value === "function" ? value.bind(client) : value;
+  },
+}) as PrismaClient;
