@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Sparkline } from "./Sparkline";
 import { cx, signed } from "@/lib/utils";
 import { useLivePrice } from "@/lib/useLivePrice";
@@ -25,7 +26,10 @@ export function StatTile({
   const up = live.changePct >= 0;
 
   return (
-    <div className="glass-panel flex items-center justify-between gap-4 p-4">
+    <Link
+      href={`/stock/${ticker}`}
+      className="glass-panel flex items-center justify-between gap-4 p-4 transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+    >
       <div>
         <div className="text-xs font-medium text-ink-muted">{label}</div>
         <div className="mt-1 flex items-center gap-1.5">
@@ -39,6 +43,6 @@ export function StatTile({
         </div>
       </div>
       {trend && <Sparkline data={trend} color={up ? "#0ca30c" : "#d03b3b"} width={88} height={32} />}
-    </div>
+    </Link>
   );
 }
