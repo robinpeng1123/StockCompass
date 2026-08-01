@@ -16,7 +16,10 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const spotlightTicker = getSpotlightTicker();
-  const [spotlight, indices] = await Promise.all([getLiveStock(spotlightTicker), getLiveIndices()]);
+  const [spotlightResult, indicesResult] = await Promise.allSettled([getLiveStock(spotlightTicker), getLiveIndices()]);
+
+  const spotlight = spotlightResult.status === "fulfilled" ? spotlightResult.value : null;
+  const indices = indicesResult.status === "fulfilled" ? indicesResult.value : [];
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
@@ -31,19 +34,25 @@ export default async function DashboardPage() {
 
       <FeatureStrip />
 
-      <div className="grid gap-4 sm:grid-cols-3">
-        {indices.map((idx) => (
-          <StatTile
-            key={idx.symbol}
-            label={idx.label}
-            ticker={idx.symbol}
-            value={idx.value}
-            prevClose={idx.prevClose}
-            deltaPct={idx.changePct}
-            trend={idx.history}
-          />
-        ))}
-      </div>
+      {indices.length > 0 ? (
+        <div className="grid gap-4 sm:grid-cols-3">
+          {indices.map((idx) => (
+            <StatTile
+              key={idx.symbol}
+              label={idx.label}
+              ticker={idx.symbol}
+              value={idx.value}
+              prevClose={idx.prevClose}
+              deltaPct={idx.changePct}
+              trend={idx.history}
+            />
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <p className="text-sm text-ink-secondary">Market indices are temporarily unavailable — try refreshing in a moment.</p>
+        </Card>
+      )}
 
       <Card glow="cyan">
         <CardHeader eyebrow="Conversational Stock Search" title="Search the market in plain English" />
@@ -52,35 +61,47 @@ export default async function DashboardPage() {
 
       <div>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">Spotlight · {spotlight.ticker}</h2>
-          <Link href={`/stock/${spotlight.ticker}`} className="text-xs font-medium text-accent-cyan hover:underline">
-            View full deep-dive →
-          </Link>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-ink-muted">
+            Spotlight{spotlight ? ` · ${spotlight.ticker}` : ""}
+          </h2>
+          {spotlight && (
+            <Link href={`/stock/${spotlight.ticker}`} className="text-xs font-medium text-accent-cyan hover:underline">
+              View full deep-dive →
+            </Link>
+          )}
         </div>
-        <Card>
-          <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-semibold text-ink-primary">{spotlight.ticker}</span>
-                <span className="text-sm text-ink-muted">{spotlight.name}</span>
+        {spotlight ? (
+          <Card>
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-lg font-semibold text-ink-primary">{spotlight.ticker}</span>
+                  <span className="text-sm text-ink-muted">{spotlight.name}</span>
+                </div>
+                <p className="mt-1 max-w-xl text-xs text-ink-secondary">{spotlight.blurb}</p>
               </div>
-              <p className="mt-1 max-w-xl text-xs text-ink-secondary">{spotlight.blurb}</p>
+              <LiveStockHeaderPrice
+                ticker={spotlight.ticker}
+                price={spotlight.price}
+                prevClose={spotlight.prevClose}
+                changePct={spotlight.changePct}
+              />
             </div>
-            <LiveStockHeaderPrice
-              ticker={spotlight.ticker}
-              price={spotlight.price}
-              prevClose={spotlight.prevClose}
-              changePct={spotlight.changePct}
-            />
-          </div>
-          <PriceChart ticker={spotlight.ticker} />
-          <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4 sm:grid-cols-4">
-            <Fact label="Sector" value={spotlight.sector} />
-            <Fact label="Market cap" value={spotlight.marketCapB ? formatMarketCap(spotlight.marketCapB) : "N/A"} />
-            <Fact label="P/E ratio" value={spotlight.peRatio ? spotlight.peRatio.toFixed(1) : "N/A"} />
-            <Fact label="Dividend yield" value={`${spotlight.dividendYieldPct.toFixed(2)}%`} />
-          </div>
-        </Card>
+            <PriceChart ticker={spotlight.ticker} />
+            <div className="mt-4 grid grid-cols-2 gap-4 border-t border-white/[0.06] pt-4 sm:grid-cols-4">
+              <Fact label="Sector" value={spotlight.sector} />
+              <Fact label="Market cap" value={spotlight.marketCapB ? formatMarketCap(spotlight.marketCapB) : "N/A"} />
+              <Fact label="P/E ratio" value={spotlight.peRatio ? spotlight.peRatio.toFixed(1) : "N/A"} />
+              <Fact label="Dividend yield" value={`${spotlight.dividendYieldPct.toFixed(2)}%`} />
+            </div>
+          </Card>
+        ) : (
+          <Card>
+            <p className="text-sm text-ink-secondary">
+              Live market data didn&apos;t respond — search for a stock above, or refresh in a moment.
+            </p>
+          </Card>
+        )}
       </div>
 
       <PortfolioCopilot />
