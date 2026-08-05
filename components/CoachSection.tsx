@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { cx } from "@/lib/utils";
 import { ErrorBoundary } from "./ErrorBoundary";
-import { CoachMascot } from "./CoachMascot";
 
 export function CoachSection({ children }: { children: React.ReactNode }) {
   const [revealed, setRevealed] = useState(false);
@@ -24,14 +23,7 @@ export function CoachSection({ children }: { children: React.ReactNode }) {
       </button>
 
       {revealed && (
-        <div className="mt-6 space-y-6">
-          <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
-            <CoachMascot className="h-14 w-14 shrink-0" />
-            <div>
-              <div className="text-sm font-semibold text-ink-primary">Your AI Coach</div>
-              <div className="text-xs text-ink-secondary">Patterns, risk, and scenarios — explained in plain English.</div>
-            </div>
-          </div>
+        <div className="mt-6">
           <ErrorBoundary>{children}</ErrorBoundary>
         </div>
       )}

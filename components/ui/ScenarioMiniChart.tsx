@@ -91,6 +91,8 @@ export function ScenarioMiniChart({
         viewBox={`0 0 ${width} ${height}`}
         width="100%"
         height={height}
+        className="touch-none"
+        onPointerDown={handleMove}
         onPointerMove={handleMove}
         onPointerLeave={() => setHoverIdx(null)}
         role="img"

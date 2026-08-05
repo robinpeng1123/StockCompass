@@ -80,7 +80,8 @@ export function DayTradingSim({
           viewBox={`0 0 ${width} ${height}`}
           width="100%"
           height={height}
-          className="overflow-visible"
+          className="touch-none overflow-visible"
+          onPointerDown={handleMove}
           onPointerMove={handleMove}
           onPointerLeave={() => setHoverIdx(null)}
           role="img"
