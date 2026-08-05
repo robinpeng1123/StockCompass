@@ -82,8 +82,10 @@ export function AICoachPanel({
             <PatternCard pattern={pattern} ticker={stock.ticker} />
             <RiskMeter stock={stock} ai={risk} />
           </div>
-          <div ref={panelRefs[2]} className="w-1/3 shrink-0 self-start px-0.5">
+          <div ref={panelRefs[2]} className="w-1/3 shrink-0 space-y-4 self-start px-0.5">
             <DayTradingSim ticker={stock.ticker} price={stock.price} volatility={stock.volatility} scenarios={scenarios} />
+            <PatternCard pattern={pattern} ticker={stock.ticker} />
+            <RiskMeter stock={stock} ai={risk} />
           </div>
         </div>
       </div>
