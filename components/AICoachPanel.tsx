@@ -1,21 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
 import { Pattern, Scenario, Stock } from "@/lib/types";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { PatternCard } from "@/components/PatternCard";
 import { RiskMeter } from "@/components/RiskMeter";
 import { DayTradingSim } from "@/components/DayTradingSim";
+import { TabCarousel } from "@/components/ui/TabCarousel";
 import { useAICoach } from "@/lib/useAICoach";
-
-// Same fixed palette as everywhere else in the app: status.good (green),
-// seq.400 (blue), accent.violet (purple) — see tailwind.config.ts.
-const TABS = [
-  { key: "prediction", label: "Stock Prediction", desc: "Bull/Neutral/Bear odds from the ML model", color: "#0ca30c", emoji: "📈" },
-  { key: "coach", label: "AI Coach", desc: "Pattern detection + risk score", color: "#3987e5", emoji: "🧑‍🏫" },
-  { key: "daysim", label: "Day Sim", desc: "A simulated trading day, tick by tick", color: "#8b6bf2", emoji: "🕹️" },
-] as const;
 
 export function AICoachPanel({
   stock,
@@ -26,17 +18,7 @@ export function AICoachPanel({
   fallbackScenarios: Scenario[];
   fallbackPattern: Pattern;
 }) {
-  const [active, setActive] = useState(0);
   const { data, loading } = useAICoach(stock.ticker, fallbackScenarios, fallbackPattern);
-
-  const panelRefs = [useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null), useRef<HTMLDivElement>(null)];
-  const [height, setHeight] = useState<number>();
-
-  useEffect(() => {
-    const el = panelRefs[active].current;
-    if (el) setHeight(el.scrollHeight);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, loading, data]);
 
   if (loading) {
     return (
@@ -53,42 +35,47 @@ export function AICoachPanel({
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-3 gap-3">
-        {TABS.map((t, i) => {
-          const isActive = active === i;
-          return (
-            <button
-              key={t.key}
-              onClick={() => setActive(i)}
-              className="glass-panel p-3.5 text-left transition-colors hover:bg-white/[0.04]"
-              style={isActive ? { borderColor: `${t.color}80`, backgroundColor: `${t.color}14` } : undefined}
-            >
-              <div className="text-lg">{t.emoji}</div>
-              <div className="mt-1 text-xs font-semibold" style={{ color: isActive ? t.color : undefined }}>
-                {t.label}
-              </div>
-              <p className="mt-0.5 text-[11px] leading-snug text-ink-muted">{t.desc}</p>
-            </button>
-          );
-        })}
-      </div>
-
-      <div className="overflow-hidden transition-[height] duration-500 ease-out" style={{ height }}>
-        <div className="flex w-[300%] transition-transform duration-500 ease-out" style={{ transform: `translateX(-${active * (100 / 3)}%)` }}>
-          <div ref={panelRefs[0]} className="w-1/3 shrink-0 self-start px-0.5">
-            <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} price={stock.price} volatility={stock.volatility} />
-          </div>
-          <div ref={panelRefs[1]} className="w-1/3 shrink-0 space-y-4 self-start px-0.5">
-            <PatternCard pattern={pattern} ticker={stock.ticker} />
-            <RiskMeter stock={stock} ai={risk} />
-          </div>
-          <div ref={panelRefs[2]} className="w-1/3 shrink-0 space-y-4 self-start px-0.5">
-            <DayTradingSim ticker={stock.ticker} price={stock.price} volatility={stock.volatility} scenarios={scenarios} />
-            <PatternCard pattern={pattern} ticker={stock.ticker} />
-            <RiskMeter stock={stock} ai={risk} />
-          </div>
-        </div>
-      </div>
+      <TabCarousel
+        // Same fixed palette as everywhere else in the app: status.good
+        // (green), seq.400 (blue), accent.violet (purple) — tailwind.config.ts.
+        tabs={[
+          {
+            key: "prediction",
+            label: "Stock Prediction",
+            desc: "Bull/Neutral/Bear odds from the ML model",
+            color: "#0ca30c",
+            emoji: "📈",
+            content: <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} price={stock.price} volatility={stock.volatility} />,
+          },
+          {
+            key: "coach",
+            label: "AI Coach",
+            desc: "Pattern detection + risk score",
+            color: "#3987e5",
+            emoji: "🧑‍🏫",
+            content: (
+              <>
+                <PatternCard pattern={pattern} ticker={stock.ticker} />
+                <RiskMeter stock={stock} ai={risk} />
+              </>
+            ),
+          },
+          {
+            key: "daysim",
+            label: "Day Sim",
+            desc: "A simulated trading day, tick by tick",
+            color: "#8b6bf2",
+            emoji: "🕹️",
+            content: (
+              <>
+                <DayTradingSim ticker={stock.ticker} price={stock.price} volatility={stock.volatility} scenarios={scenarios} />
+                <PatternCard pattern={pattern} ticker={stock.ticker} />
+                <RiskMeter stock={stock} ai={risk} />
+              </>
+            ),
+          },
+        ]}
+      />
 
       <p className="text-[11px] text-ink-muted">
         Scenario predictions come from a trained ML model (see note above) — that part never depends on the AI call

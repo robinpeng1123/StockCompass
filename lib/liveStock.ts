@@ -15,7 +15,7 @@ function clamp(n: number, min: number, max: number) {
  * computed from real recent price history + fundamentals — not a trained
  * model. They exist to teach the underlying concepts, not to predict returns.
  */
-function computeScores(closes: number[], beta: number | undefined, marketCapB: number) {
+export function computeScores(closes: number[], beta: number | undefined, marketCapB: number) {
   if (closes.length < 5) return { risk: 50, momentum: 50, volatility: 50, aiScore: 50 };
 
   const returns: number[] = [];

@@ -1,11 +1,15 @@
 import { Stock } from "./types";
 
 export function explainRisk(s: Stock) {
+  // marketCapB is 0 for assets with no market-cap concept in our data (crypto,
+  // some ETFs) — treat that as "unknown", not "small", so a size-based claim
+  // is never made about an asset we simply have no cap figure for.
+  const hasCap = s.marketCapB > 0;
   if (s.risk >= 70)
-    return `${s.ticker} carries elevated risk: a ${s.marketCapB < 50 ? "smaller market cap" : "richer valuation"} and ${s.volatility}/100 volatility mean price swings can be sharp in either direction.`;
+    return `${s.ticker} carries elevated risk: ${hasCap ? `a ${s.marketCapB < 50 ? "smaller market cap" : "richer valuation"} and ` : ""}${s.volatility}/100 volatility mean price swings can be sharp in either direction.`;
   if (s.risk >= 40)
-    return `${s.ticker} sits at moderate risk — a reasonably sized business, but with enough valuation or sector sensitivity to expect real drawdowns.`;
-  return `${s.ticker} screens as lower risk: an established, diversified business with a valuation that isn't pricing in aggressive growth assumptions.`;
+    return `${s.ticker} sits at moderate risk — ${hasCap ? "a reasonably sized business, but with enough valuation or sector sensitivity to expect real drawdowns." : "enough volatility to expect real drawdowns along the way."}`;
+  return `${s.ticker} screens as lower risk: ${hasCap ? "an established, diversified business with a valuation that isn't pricing in aggressive growth assumptions." : "price action here has been comparatively calm and steady recently."}`;
 }
 
 export function explainMomentum(s: Stock) {

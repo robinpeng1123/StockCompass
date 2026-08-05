@@ -25,6 +25,7 @@ const NAV: NavEntry[] = [
       { href: "/etfs", label: "ETFs", icon: NavIconLayers },
     ],
   },
+  { href: "/crypto", label: "Crypto", icon: NavIconCoin },
   { href: "/portfolio", label: "Portfolio Copilot", icon: NavIconShield },
   { href: "/market-stories", label: "Market Stories", icon: NavIconNews },
   { href: "/learn", label: "Learn", icon: NavIconBook },
@@ -331,6 +332,14 @@ function NavIconBook({ active }: { active?: boolean }) {
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={active ? "opacity-100" : "opacity-70"}>
       <path d="M3 3.5c1.8-.7 4-.7 6 0v11c-2-.7-4.2-.7-6 0v-11Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
       <path d="M15 3.5c-1.8-.7-4-.7-6 0v11c2-.7 4.2-.7 6 0v-11Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function NavIconCoin({ active }: { active?: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={active ? "opacity-100" : "opacity-70"}>
+      <circle cx="9" cy="9" r="6.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M9 5.5v7M11 7.2c0-.9-.9-1.6-2-1.6-1.1 0-2 .7-2 1.6s.9 1.4 2 1.6c1.1.2 2 .7 2 1.6s-.9 1.6-2 1.6-2-.7-2-1.6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }

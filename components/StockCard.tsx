@@ -7,13 +7,13 @@ import { formatPrice, signed } from "@/lib/utils";
 import { Badge } from "./ui/Badge";
 import { useLivePrice } from "@/lib/useLivePrice";
 
-export function StockCard({ stock }: { stock: Stock }) {
+export function StockCard({ stock, href }: { stock: Stock; href?: string }) {
   const live = useLivePrice(stock.ticker, stock.price, stock.prevClose, stock.changePct);
   const up = live.changePct >= 0;
 
   return (
     <Link
-      href={`/stock/${stock.ticker}`}
+      href={href ?? `/stock/${stock.ticker}`}
       className="group glass-panel flex flex-col gap-3 p-4 transition-all hover:border-white/20 hover:bg-white/[0.04]"
     >
       <div className="flex items-start justify-between">
