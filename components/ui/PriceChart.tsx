@@ -161,12 +161,12 @@ export function PriceChart({ ticker }: { ticker: string }) {
         )}
       </div>
 
-      <div className="mt-3 flex justify-center gap-1.5">
+      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
         {CHART_RANGES.map((r) => (
           <button
             key={r}
             onClick={() => setRangeKey(r)}
-            className={`rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
+            className={`whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium transition-colors ${
               rangeKey === r ? "bg-white/[0.08] text-ink-primary" : "text-ink-muted hover:bg-white/[0.04] hover:text-ink-secondary"
             }`}
           >

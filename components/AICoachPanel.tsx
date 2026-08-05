@@ -6,6 +6,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { PatternCard } from "@/components/PatternCard";
 import { RiskMeter, AIRiskOverride } from "@/components/RiskMeter";
+import { DayTradingSim } from "@/components/DayTradingSim";
 
 type CoachResponse = {
   scenarios: Scenario[];
@@ -72,6 +73,7 @@ export function AICoachPanel({
   return (
     <div className="space-y-2">
       <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} price={stock.price} volatility={stock.volatility} />
+      <DayTradingSim ticker={stock.ticker} price={stock.price} volatility={stock.volatility} scenarios={scenarios} />
       <div className="grid gap-6 lg:grid-cols-2">
         <PatternCard pattern={pattern} ticker={stock.ticker} />
         <RiskMeter stock={stock} ai={risk} />

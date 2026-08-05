@@ -52,11 +52,43 @@ function escapeRegex(s: string) {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  let prevRow = Array.from({ length: b.length + 1 }, (_, j) => j);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    for (let j = 1; j <= b.length; j++) {
+      row[j] =
+        a[i - 1] === b[j - 1]
+          ? prevRow[j - 1]
+          : 1 + Math.min(prevRow[j - 1], prevRow[j], row[j - 1]);
+    }
+    prevRow = row;
+  }
+  return prevRow[b.length];
+}
+
+/** 1 = identical, 0 = completely different. */
+function similarity(a: string, b: string): number {
+  const maxLen = Math.max(a.length, b.length);
+  if (maxLen === 0) return 1;
+  return 1 - levenshtein(a, b) / maxLen;
+}
+
 /**
  * Ranks a candidate against the query so the stock someone's actually
  * looking for — an exact ticker, or a company whose name starts with what
  * they typed — always outranks an unrelated ticker that merely starts with
  * the same letters, or a company that just mentions the query mid-name.
+ *
+ * Below all of that sits a fuzzy tier: even a typo'd or misremembered name
+ * (transposed/missing/extra letters) still surfaces its closest real match
+ * as the top result, rather than coming back empty or with the wrong stock
+ * first, as long as it's a genuinely close resemblance to the ticker or one
+ * word of the company name.
  */
 function matchScore(s: FinnhubSymbol, q: string): number {
   const sym = s.symbol.toUpperCase();
@@ -69,6 +101,12 @@ function matchScore(s: FinnhubSymbol, q: string): number {
   if (new RegExp(`\\b${escapeRegex(q)}`).test(desc)) return 60; // query starts a word within the name
   if (sym.includes(q)) return 40;
   if (desc.includes(q)) return 20;
+
+  const symSim = q.length >= 2 ? similarity(sym, q) : 0;
+  const wordSim = Math.max(0, ...desc.split(/\s+/).map((w) => (q.length >= 2 ? similarity(w, q) : 0)));
+  const bestSim = Math.max(symSim, wordSim);
+  if (bestSim >= 0.55) return Math.round(55 * bestSim);
+
   return 0;
 }
 
