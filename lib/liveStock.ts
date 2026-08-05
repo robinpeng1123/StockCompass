@@ -2,6 +2,7 @@ import "server-only";
 import { getQuote, getProfile, getBasicFinancials, FinnhubError } from "./finnhub";
 import { getHistory } from "./yahooHistory";
 import { getCuratedEntry, CURATED_TICKERS } from "./curatedUniverse";
+import { getCuratedETFEntry, CURATED_ETF_TICKERS } from "./curatedETFs";
 import { mapWithConcurrency } from "./concurrency";
 import { Stock } from "./types";
 
@@ -50,6 +51,7 @@ function computeScores(closes: number[], beta: number | undefined, marketCapB: n
 export async function getLiveStock(tickerRaw: string, opts: { skipFinancials?: boolean } = {}): Promise<Stock> {
   const ticker = tickerRaw.toUpperCase();
   const curated = getCuratedEntry(ticker);
+  const curatedETF = curated ? undefined : getCuratedETFEntry(ticker);
 
   const [quote, profile, financials, history] = await Promise.all([
     getQuote(ticker),
@@ -65,7 +67,7 @@ export async function getLiveStock(tickerRaw: string, opts: { skipFinancials?: b
   }
 
   const name = profile.name || ticker;
-  const sector = curated?.sector || profile.finnhubIndustry || "Other";
+  const sector = curated?.sector || curatedETF?.category || profile.finnhubIndustry || "Other";
   const marketCapB = profile.marketCapitalization ? profile.marketCapitalization / 1000 : 0;
   const price = quote.c;
   const prevClose = quote.pc || price;
@@ -86,10 +88,10 @@ export async function getLiveStock(tickerRaw: string, opts: { skipFinancials?: b
     dividendYieldPct: financials.metric?.dividendYieldIndicatedAnnual ?? 0,
     history: closes,
     ...scores,
-    tags: curated?.tags ?? [],
-    blurb: curated?.blurb ?? `${name} trades on the US markets in the ${sector} sector.`,
+    tags: curated?.tags ?? curatedETF?.tags ?? [],
+    blurb: curated?.blurb ?? curatedETF?.blurb ?? `${name} trades on the US markets in the ${sector} sector.`,
     asOf: quote.t ? quote.t * 1000 : Date.now(),
-    curated: !!curated,
+    curated: !!curated || !!curatedETF,
   };
 }
 
@@ -114,5 +116,23 @@ export async function getLiveCuratedUniverse(): Promise<Stock[]> {
   });
   const data = results.filter((s): s is Stock => s !== null);
   universeCache = { at: Date.now(), data };
+  return data;
+}
+
+let etfCache: { at: number; data: Stock[] } | null = null;
+
+/** Same idea as getLiveCuratedUniverse, over the separate curated ETF list. */
+export async function getLiveCuratedETFs(): Promise<Stock[]> {
+  if (etfCache && Date.now() - etfCache.at < UNIVERSE_CACHE_TTL_MS) return etfCache.data;
+
+  const results = await mapWithConcurrency(CURATED_ETF_TICKERS, 5, async (ticker) => {
+    try {
+      return await getLiveStock(ticker, { skipFinancials: true });
+    } catch {
+      return null;
+    }
+  });
+  const data = results.filter((s): s is Stock => s !== null);
+  etfCache = { at: Date.now(), data };
   return data;
 }

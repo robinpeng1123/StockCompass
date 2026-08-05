@@ -6,9 +6,25 @@ import { ReactNode, useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Logo } from "@/components/ui/Logo";
 
-const NAV = [
+type NavIcon = (props: { active?: boolean }) => ReactNode;
+type NavLink = { href: string; label: string; icon: NavIcon };
+type NavGroup = { label: string; icon: NavIcon; children: NavLink[] };
+type NavEntry = NavLink | NavGroup;
+
+function isNavGroup(item: NavEntry): item is NavGroup {
+  return "children" in item;
+}
+
+const NAV: NavEntry[] = [
   { href: "/", label: "Command Center", icon: NavIconGrid },
-  { href: "/screener", label: "Stock Search", icon: NavIconSearch },
+  {
+    label: "Stocks",
+    icon: NavIconSearch,
+    children: [
+      { href: "/screener", label: "Stock Search", icon: NavIconSearch },
+      { href: "/etfs", label: "ETFs", icon: NavIconLayers },
+    ],
+  },
   { href: "/portfolio", label: "Portfolio Copilot", icon: NavIconShield },
   { href: "/market-stories", label: "Market Stories", icon: NavIconNews },
   { href: "/learn", label: "Learn", icon: NavIconBook },
@@ -30,25 +46,13 @@ export default function AppShell({ children }: { children: ReactNode }) {
           </div>
 
           <nav className="mt-4 flex-1 space-y-1 px-3">
-            {NAV.map((item) => {
-              const active = pathname === item.href;
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
-                    active
-                      ? "bg-white/[0.06] text-ink-primary shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
-                      : "text-ink-secondary hover:bg-white/[0.03] hover:text-ink-primary"
-                  }`}
-                >
-                  <Icon active={active} />
-                  {item.label}
-                  {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-cyan shadow-glow" />}
-                </Link>
-              );
-            })}
+            {NAV.map((item) =>
+              isNavGroup(item) ? (
+                <NavGroupItem key={item.label} group={item} pathname={pathname} />
+              ) : (
+                <NavLinkItem key={item.href} item={item} active={pathname === item.href} />
+              )
+            )}
           </nav>
 
           <div className="px-3 pb-1 space-y-1">
@@ -94,17 +98,89 @@ export default function AppShell({ children }: { children: ReactNode }) {
   );
 }
 
+function NavLinkItem({ item, active }: { item: NavLink; active: boolean }) {
+  const Icon = item.icon;
+  return (
+    <Link
+      href={item.href}
+      className={`group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+        active
+          ? "bg-white/[0.06] text-ink-primary shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+          : "text-ink-secondary hover:bg-white/[0.03] hover:text-ink-primary"
+      }`}
+    >
+      <Icon active={active} />
+      {item.label}
+      {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-cyan shadow-glow" />}
+    </Link>
+  );
+}
+
+function NavGroupItem({ group, pathname }: { group: NavGroup; pathname: string }) {
+  const childActive = group.children.some((c) => pathname === c.href);
+  const [open, setOpen] = useState(childActive);
+  const Icon = group.icon;
+
+  // If navigation elsewhere makes this group's own route active (e.g. a link
+  // straight to /etfs), open it so the current page is visible in-place
+  // instead of leaving the group collapsed with no indication of where you are.
+  useEffect(() => {
+    if (childActive) setOpen(true);
+  }, [childActive]);
+
+  return (
+    <div>
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors ${
+          childActive
+            ? "bg-white/[0.06] text-ink-primary shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]"
+            : "text-ink-secondary hover:bg-white/[0.03] hover:text-ink-primary"
+        }`}
+      >
+        <Icon active={childActive} />
+        {group.label}
+        <NavIconChevron className={`ml-auto transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      <div className={`grid transition-[grid-template-rows] duration-300 ease-out ${open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}>
+        <div className="overflow-hidden">
+          <div className="ml-4 mt-1 space-y-1 border-l border-white/[0.08] pl-3">
+            {group.children.map((child) => {
+              const active = pathname === child.href;
+              const ChildIcon = child.icon;
+              return (
+                <Link
+                  key={child.href}
+                  href={child.href}
+                  className={`group flex items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+                    active ? "text-ink-primary" : "text-ink-secondary hover:text-ink-primary"
+                  }`}
+                >
+                  <ChildIcon active={active} />
+                  {child.label}
+                  {active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-accent-cyan shadow-glow" />}
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function MobileTabBar() {
   const pathname = usePathname();
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-white/[0.08] bg-plane/90 backdrop-blur-xl lg:hidden">
       {NAV.map((item) => {
-        const active = pathname === item.href;
+        const href = isNavGroup(item) ? item.children[0].href : item.href;
+        const active = isNavGroup(item) ? item.children.some((c) => pathname === c.href) : pathname === item.href;
         const Icon = item.icon;
         return (
           <Link
-            key={item.href}
-            href={item.href}
+            key={item.label}
+            href={href}
             className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium ${
               active ? "text-accent-cyan" : "text-ink-muted"
             }`}
@@ -255,6 +331,22 @@ function NavIconBook({ active }: { active?: boolean }) {
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={active ? "opacity-100" : "opacity-70"}>
       <path d="M3 3.5c1.8-.7 4-.7 6 0v11c-2-.7-4.2-.7-6 0v-11Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
       <path d="M15 3.5c-1.8-.7-4-.7-6 0v11c2-.7 4.2-.7 6 0v-11Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function NavIconLayers({ active }: { active?: boolean }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" className={active ? "opacity-100" : "opacity-70"}>
+      <path d="M9 2.5L15.5 6 9 9.5 2.5 6 9 2.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M2.5 9.5L9 13l6.5-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M2.5 12.5L9 16l6.5-3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+function NavIconChevron({ className = "" }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className={`opacity-60 ${className}`}>
+      <path d="M4 5.5L7 8.5L10 5.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

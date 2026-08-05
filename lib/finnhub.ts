@@ -41,8 +41,9 @@ const SYMBOL_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // the US ticker directory bare
 export async function getAllUSSymbols(): Promise<FinnhubSymbol[]> {
   if (symbolCache && Date.now() - symbolCache.at < SYMBOL_CACHE_TTL_MS) return symbolCache.data;
   const raw = await finnhubFetch<any[]>("/stock/symbol", { exchange: "US" }, 60 * 60 * 24);
+  const INCLUDED_TYPES = new Set(["Common Stock", "ETP", "ETF"]);
   const data: FinnhubSymbol[] = raw
-    .filter((r) => r.type === "Common Stock" && r.symbol && !r.symbol.includes("."))
+    .filter((r) => INCLUDED_TYPES.has(r.type) && r.symbol && !r.symbol.includes("."))
     .map((r) => ({ symbol: r.symbol, description: r.description, type: r.type, currency: r.currency }));
   symbolCache = { at: Date.now(), data };
   return data;
