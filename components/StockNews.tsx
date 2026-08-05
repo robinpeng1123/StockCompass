@@ -12,12 +12,18 @@ export function StockNews({ ticker, news }: { ticker: string; news: FinnhubNewsI
         <ul className="space-y-3.5">
           {news.slice(0, 6).map((n, i) => (
             <li key={i}>
-              <a href={n.url} target="_blank" rel="noopener noreferrer" className="group block">
-                <p className="text-sm leading-snug text-ink-primary group-hover:text-accent-cyan">{n.headline}</p>
-                <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-muted">
-                  <span className="font-medium text-ink-secondary">{n.source}</span>
-                  <span>·</span>
-                  <span>{formatTimeAgo(n.datetime)}</span>
+              <a href={n.url} target="_blank" rel="noopener noreferrer" className="group flex gap-3">
+                {n.image && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={n.image} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm leading-snug text-ink-primary group-hover:text-accent-cyan">{n.headline}</p>
+                  <div className="mt-1 flex items-center gap-1.5 text-[11px] text-ink-muted">
+                    <span className="font-medium text-ink-secondary">{n.source}</span>
+                    <span>·</span>
+                    <span>{formatTimeAgo(n.datetime)}</span>
+                  </div>
                 </div>
               </a>
             </li>

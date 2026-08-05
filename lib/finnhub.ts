@@ -190,7 +190,14 @@ export async function getCompanyNews(symbol: string, days = 21): Promise<Finnhub
   return raw
     .filter((n) => n.headline && n.url)
     .sort((a, b) => b.datetime - a.datetime)
-    .map((n) => ({ headline: n.headline, source: n.source ?? "Unknown source", url: n.url, datetime: n.datetime, summary: n.summary ?? "" }));
+    .map((n) => ({
+      headline: n.headline,
+      source: n.source ?? "Unknown source",
+      url: n.url,
+      datetime: n.datetime,
+      summary: n.summary ?? "",
+      image: n.image || undefined,
+    }));
 }
 
 /**

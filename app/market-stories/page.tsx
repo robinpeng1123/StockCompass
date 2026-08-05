@@ -23,11 +23,25 @@ export default async function MarketStoriesPage() {
         <div className="space-y-3">
           {news.slice(0, 30).map((n, i) => {
             const relatedTickers = n.related ? n.related.split(",").map((t) => t.trim()).filter(Boolean).slice(0, 3) : [];
+            // Wire-syndicated stories (Reuters, AP, etc.) often reuse the same
+            // generic outlet logo for every headline rather than a real photo
+            // — repeating identically across consecutive items is the tell.
+            // object-cover crops those into an unreadable fragment, so show a
+            // source-initial badge instead when the image isn't distinctive.
+            const isGenericLogo = i > 0 && n.image && n.image === news[i - 1].image;
             return (
               <Card key={i} className="flex gap-4">
-                {n.image && (
+                {n.image && !isGenericLogo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={n.image} alt="" className="h-16 w-16 shrink-0 rounded-lg object-cover sm:h-20 sm:w-28" />
+                  <img
+                    src={n.image}
+                    alt=""
+                    className="h-16 w-16 shrink-0 rounded-lg bg-white/5 object-contain p-1 sm:h-20 sm:w-28"
+                  />
+                ) : (
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-white/5 text-lg font-semibold text-ink-muted sm:h-20 sm:w-28">
+                    {n.source.slice(0, 1).toUpperCase()}
+                  </div>
                 )}
                 <div className="min-w-0 flex-1">
                   <a href={n.url} target="_blank" rel="noopener noreferrer" className="group block">

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getLiveStock } from "@/lib/liveStock";
 import { getLiveIndices } from "@/lib/liveIndices";
 import { getSpotlightTicker } from "@/lib/spotlight";
+import { getPattern, getScenarios } from "@/lib/mockData";
 import { formatMarketCap } from "@/lib/utils";
 import { StatTile } from "@/components/ui/StatTile";
 import { NaturalLanguageSearch } from "@/components/NaturalLanguageSearch";
@@ -9,6 +10,7 @@ import { FeatureStrip } from "@/components/FeatureStrip";
 import { PriceChart } from "@/components/ui/PriceChart";
 import { LiveStockHeaderPrice } from "@/components/ui/LiveStockHeaderPrice";
 import { PortfolioCopilot } from "@/components/PortfolioCopilot";
+import { CoachShowcase } from "@/components/CoachShowcase";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Greeting } from "@/components/Greeting";
 
@@ -33,6 +35,19 @@ export default async function DashboardPage() {
       </div>
 
       <FeatureStrip />
+
+      {spotlight && (
+        <div>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-muted">
+            AI Coach Preview · {spotlight.ticker}
+          </h2>
+          <CoachShowcase
+            stock={spotlight}
+            fallbackScenarios={getScenarios(spotlight.ticker)}
+            fallbackPattern={getPattern(spotlight.ticker)}
+          />
+        </div>
+      )}
 
       {indices.length > 0 ? (
         <div className="grid gap-4 sm:grid-cols-3">

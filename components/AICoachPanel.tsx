@@ -1,19 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Pattern, Scenario, Stock } from "@/lib/types";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
 import { PatternCard } from "@/components/PatternCard";
-import { RiskMeter, AIRiskOverride } from "@/components/RiskMeter";
+import { RiskMeter } from "@/components/RiskMeter";
 import { DayTradingSim } from "@/components/DayTradingSim";
-
-type CoachResponse = {
-  scenarios: Scenario[];
-  pattern: Pattern;
-  risk: AIRiskOverride;
-  source: "ai" | "fallback";
-};
+import { useAICoach } from "@/lib/useAICoach";
 
 export function AICoachPanel({
   stock,
@@ -24,36 +17,7 @@ export function AICoachPanel({
   fallbackScenarios: Scenario[];
   fallbackPattern: Pattern;
 }) {
-  const [data, setData] = useState<CoachResponse | null>(null);
-  const [source, setSource] = useState<"ai" | "fallback">("fallback");
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-    fetch(`/api/coach/${stock.ticker}`)
-      .then((r) => r.json())
-      .then((d) => {
-        if (cancelled) return;
-        const scenarios = Array.isArray(d.scenarios) && d.scenarios.length === 3 ? d.scenarios : fallbackScenarios;
-        const pattern = d.pattern ?? fallbackPattern;
-        const risk = d.risk ?? null;
-        setData({ scenarios, pattern, risk, source: d.source === "ai" ? "ai" : "fallback" });
-        setSource(d.source === "ai" ? "ai" : "fallback");
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setData({ scenarios: fallbackScenarios, pattern: fallbackPattern, risk: null as never, source: "fallback" });
-        setSource("fallback");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [stock.ticker]);
+  const { data, loading } = useAICoach(stock.ticker, fallbackScenarios, fallbackPattern);
 
   if (loading) {
     return (
@@ -66,9 +30,7 @@ export function AICoachPanel({
     );
   }
 
-  const scenarios = data?.scenarios ?? fallbackScenarios;
-  const pattern = data?.pattern ?? fallbackPattern;
-  const risk = data?.risk ?? undefined;
+  const { scenarios, pattern, risk, source } = data;
 
   return (
     <div className="space-y-2">
