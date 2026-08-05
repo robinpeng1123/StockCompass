@@ -37,14 +37,26 @@ function computeScores(closes: number[], beta: number | undefined, marketCapB: n
   return { risk, momentum, volatility, aiScore };
 }
 
-export async function getLiveStock(tickerRaw: string): Promise<Stock> {
+/**
+ * `skipFinancials` drops the `getBasicFinancials` call (P/E, dividend yield,
+ * beta) for callers that don't render those fields — search results and the
+ * watchlist only ever show price/name/sector/history. That's a real third of
+ * the Finnhub calls this function makes, and cutting it for the two highest-
+ * volume, many-tickers-at-once callers meaningfully lowers how fast a
+ * multi-candidate search or a big watchlist can trip the free-tier rate limit.
+ * The full stock detail page (which does display P/E and dividend yield)
+ * calls this with the default, so it always gets the real numbers.
+ */
+export async function getLiveStock(tickerRaw: string, opts: { skipFinancials?: boolean } = {}): Promise<Stock> {
   const ticker = tickerRaw.toUpperCase();
   const curated = getCuratedEntry(ticker);
 
   const [quote, profile, financials, history] = await Promise.all([
     getQuote(ticker),
     getProfile(ticker).catch(() => ({} as Awaited<ReturnType<typeof getProfile>>)),
-    getBasicFinancials(ticker).catch(() => ({} as Awaited<ReturnType<typeof getBasicFinancials>>)),
+    opts.skipFinancials
+      ? Promise.resolve({} as Awaited<ReturnType<typeof getBasicFinancials>>)
+      : getBasicFinancials(ticker).catch(() => ({} as Awaited<ReturnType<typeof getBasicFinancials>>)),
     getHistory(ticker, "1mo").catch(() => []),
   ]);
 

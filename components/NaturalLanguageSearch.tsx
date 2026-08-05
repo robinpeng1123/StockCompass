@@ -35,17 +35,18 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
       const symRes = await fetch(`/api/symbols?q=${encodeURIComponent(q)}`).then((r) => r.json());
       const symbolMatches: { symbol: string; description: string }[] = symRes.results ?? [];
 
+      let rateLimited = false;
       if (symbolMatches.length > 0) {
         const top = symbolMatches.slice(0, 6);
-        const stocks = await Promise.all(
+        const responses = await Promise.all(
           top.map((m) =>
             fetch(`/api/stock/${m.symbol}`)
-              .then((r) => r.json())
-              .then((d) => d.stock as Stock | null)
-              .catch(() => null)
+              .then((r) => r.json().then((d) => ({ status: r.status, stock: d.stock as Stock | null })))
+              .catch(() => ({ status: 0, stock: null as Stock | null }))
           )
         );
-        const found = stocks.filter((s): s is Stock => !!s);
+        const found = responses.map((r) => r.stock).filter((s): s is Stock => !!s);
+        rateLimited = found.length === 0 && responses.some((r) => r.status === 429);
         if (found.length > 0) {
           setCriteria([`Matches for "${q}" across all US-listed stocks`]);
           setResults(found);
@@ -58,6 +59,11 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
       // Tier 2: fall back to the thematic screener over the curated universe.
       const u = universe ?? (await fetch("/api/universe").then((r) => r.json()).then((d) => d.stocks ?? []));
       const result = runScreen(q, u);
+      if (result.results.length === 0 && rateLimited) {
+        setError("Live market data is rate-limited right now — try again in a moment.");
+        setStatus("error");
+        return;
+      }
       setCriteria(result.criteria);
       setResults(result.results);
       setDirectMatch(false);
