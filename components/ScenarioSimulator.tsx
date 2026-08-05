@@ -35,7 +35,7 @@ export function ScenarioSimulator({
         eyebrow={ticker}
         title="Prediction Simulator"
         icon={<DiceIcon />}
-        action={<span className="text-[11px] text-ink-muted">Scenario analysis, not a forecast</span>}
+        action={<span className="text-[11px] text-ink-muted">ML model prediction, not a forecast</span>}
       />
 
       {/* Combined probability — single stacked bar, part-to-whole across the three scenarios */}
@@ -73,8 +73,10 @@ export function ScenarioSimulator({
       </div>
 
       <p className="mt-5 text-[11px] leading-relaxed text-ink-muted">
-        Each path is a simulated ~30-day-out estimate for that scenario, not a guarantee — markets don&apos;t owe any
-        scenario its stated odds.
+        Probabilities come from a supervised model trained on 5 years of price action across 500+ stocks — on
+        held-out stocks it predicts direction correctly about 39% of the time (vs. 33% random, 36% always-guess-
+        Neutral). A real, modest edge — not a reliable forecast. Each path is a ~30-day-out estimate for that
+        scenario, not a guarantee.
       </p>
     </Card>
   );

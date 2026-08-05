@@ -4,19 +4,8 @@ import { zodResponseFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { Pattern, Scenario, Stock } from "./types";
 import { getCompanyNews, getEarnings } from "./finnhub";
-import { getPattern as getHeuristicPattern, getScenarios as getHeuristicScenarios } from "./mockData";
-
-const ScenarioSchema = z.object({
-  label: z.enum(["Bullish", "Neutral", "Bearish"]),
-  trigger: z
-    .string()
-    .describe(
-      "One concise sentence: the specific condition that would produce this outcome, grounded in the news/earnings/fundamentals provided — not generic language."
-    ),
-  probabilityPct: z.number().describe("Whole-number percent chance of this scenario (0-100)."),
-  rangeLowPct: z.number().describe("Low end of the expected one-month price change, as a percent (can be negative)."),
-  rangeHighPct: z.number().describe("High end of the expected one-month price change, as a percent (can be negative)."),
-});
+import { getPattern as getHeuristicPattern } from "./mockData";
+import { predictScenarios } from "./ml/scenarioModel";
 
 const PatternSchema = z.object({
   name: z.string().describe("Short name for the chart/technical setup, e.g. 'Bull Flag', 'Ascending Triangle', 'Range-bound Consolidation'."),
@@ -37,13 +26,9 @@ const RiskSchema = z.object({
   overallExplain: z.string().describe("1-2 sentences summarizing why the composite score is what it is."),
 });
 
-const CoachResponseSchema = z.object({
+const PatternRiskSchema = z.object({
   pattern: PatternSchema,
   risk: RiskSchema,
-  scenarios: z
-    .array(ScenarioSchema)
-    .length(3)
-    .describe("Exactly one Bullish, one Neutral, and one Bearish scenario, in that order. Probabilities should sum to about 100."),
 });
 
 export type AICoachResult = {
@@ -73,9 +58,8 @@ function todayLabel() {
   return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function fallbackResult(ticker: string, stock: Stock): AICoachResult {
+function fallbackPatternAndRisk(ticker: string, stock: Stock): Pick<AICoachResult, "pattern" | "risk"> {
   return {
-    scenarios: getHeuristicScenarios(ticker),
     pattern: getHeuristicPattern(ticker),
     risk: {
       risk: stock.risk,
@@ -87,30 +71,41 @@ function fallbackResult(ticker: string, stock: Stock): AICoachResult {
       volatilityExplain: "",
       overallExplain: "",
     },
-    source: "fallback",
   };
 }
 
-// Generates the Prediction Simulator scenarios, AI Pattern Detection, and AI Risk
-// Meter all from one OpenAI call grounded in a stock's live news/earnings/
-// fundamentals, falling back to the static heuristics on any failure (missing
-// key, refusal, parse error, rate limit, timeout). Cached once per ticker per
-// day so repeated "Coach Me!" clicks don't re-spend tokens.
+// Scenario predictions come from the trained ML model (lib/ml/scenarioModel.ts)
+// — deterministic, local, and independent of the OpenAI call below, so a rate
+// limit or outage on either data source can't take the other one down with it.
+// Pattern Detection and the Risk Meter still come from one OpenAI call
+// grounded in the stock's live news/earnings/fundamentals, falling back to
+// static heuristics on any failure (missing key, refusal, parse error, rate
+// limit, timeout). Cached once per ticker per day so repeated "Coach Me!"
+// clicks don't re-spend tokens or re-run the model unnecessarily.
 export async function getAICoachAnalysis(stock: Stock): Promise<AICoachResult> {
   const dateKey = todayKey();
   const cacheKey = stock.ticker.toUpperCase();
   const existing = cache.get(cacheKey);
   if (existing && existing.dateKey === dateKey) return existing.promise;
 
-  const promise = computeAICoach(stock).catch((err): AICoachResult => {
-    console.error(`[aiCoach] falling back for ${stock.ticker}:`, err);
-    return fallbackResult(stock.ticker, stock);
-  });
+  const promise = computeAICoach(stock);
   cache.set(cacheKey, { promise, dateKey });
   return promise;
 }
 
 async function computeAICoach(stock: Stock): Promise<AICoachResult> {
+  const scenarios = predictScenarios(stock.history);
+
+  try {
+    const { pattern, risk } = await callOpenAIForPatternAndRisk(stock);
+    return { scenarios, pattern, risk, source: "ai" };
+  } catch (err) {
+    console.error(`[aiCoach] pattern/risk falling back for ${stock.ticker}:`, err);
+    return { scenarios, ...fallbackPatternAndRisk(stock.ticker, stock), source: "fallback" };
+  }
+}
+
+async function callOpenAIForPatternAndRisk(stock: Stock): Promise<Pick<AICoachResult, "pattern" | "risk">> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set.");
 
@@ -131,7 +126,7 @@ async function computeAICoach(stock: Stock): Promise<AICoachResult> {
       .map((e) => `- ${e.period}: actual ${e.actual ?? "N/A"} vs estimate ${e.estimate ?? "N/A"}`)
       .join("\n") || "No recent earnings data available.";
 
-  const prompt = `You are a financial-education assistant generating illustrative, transparent AI analysis (not investment advice) for a stock coaching app. You produce three things from the same data: pattern detection, a risk/momentum/volatility read, and scenario predictions.
+  const prompt = `You are a financial-education assistant generating illustrative, transparent AI analysis (not investment advice) for a stock coaching app. You produce two things from the same data: pattern detection, and a risk/momentum/volatility read.
 
 Ticker: ${stock.ticker} (${stock.name})
 Sector: ${stock.sector}
@@ -148,13 +143,11 @@ ${newsSummary}
 Recent earnings:
 ${earningsSummary}
 
-Produce all three of the following, grounded in the specific data above wherever possible — avoid generic language:
+Produce both of the following, grounded in the specific data above wherever possible — avoid generic language:
 
 1. Pattern: identify the chart/technical setup the recent closes suggest (e.g. a flag, triangle, channel, range-bound consolidation), its direction, a confidence percentage, why it matters, and a plausible historical base rate for that kind of setup.
 
 2. Risk: score risk, momentum, and volatility each 0-100 (higher = more of that quality), plus a 0-100 overall composite score, each with a short grounded explanation.
-
-3. Scenarios: three one-month-ahead price scenarios — Bullish, Neutral, and Bearish — each with a probability (summing to about 100) and a percent price-change range from today's price.
 
 Answer directly with the structured result — no exploratory reasoning needed, this is a quick synthesis of the data already given to you.`;
 
@@ -167,8 +160,8 @@ Answer directly with the structured result — no exploratory reasoning needed, 
   const completion = await client.chat.completions.parse({
     model: "gpt-5.6-luna",
     reasoning_effort: "none",
-    max_completion_tokens: 1400,
-    response_format: zodResponseFormat(CoachResponseSchema, "coach_analysis"),
+    max_completion_tokens: 1000,
+    response_format: zodResponseFormat(PatternRiskSchema, "pattern_risk_analysis"),
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -177,16 +170,9 @@ Answer directly with the structured result — no exploratory reasoning needed, 
     throw new Error("AI coach analysis was refused or returned no parsed output.");
   }
 
-  const { pattern, risk, scenarios } = message.parsed;
+  const { pattern, risk } = message.parsed;
 
   return {
-    scenarios: scenarios.map((s) => ({
-      label: s.label,
-      trigger: s.trigger,
-      probabilityPct: Math.round(Math.min(100, Math.max(0, s.probabilityPct))),
-      rangeLowPct: s.rangeLowPct,
-      rangeHighPct: s.rangeHighPct,
-    })),
     pattern: {
       name: pattern.name,
       confidencePct: Math.round(Math.min(100, Math.max(0, pattern.confidencePct))),
@@ -205,6 +191,5 @@ Answer directly with the structured result — no exploratory reasoning needed, 
       volatilityExplain: risk.volatilityExplain,
       overallExplain: risk.overallExplain,
     },
-    source: "ai",
   };
 }
