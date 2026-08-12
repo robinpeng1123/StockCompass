@@ -5,7 +5,7 @@ import { z } from "zod";
 import { Pattern, Scenario, Stock } from "./types";
 import { getCompanyNews, getEarnings } from "./finnhub";
 import { getPattern as getHeuristicPattern } from "./mockData";
-import { predictScenarios } from "./ml/scenarioModel";
+import { predictScenarios, computeMLRiskScores } from "./ml/scenarioModel";
 
 const PatternSchema = z.object({
   name: z.string().describe("Short name for the chart/technical setup, e.g. 'Bull Flag', 'Ascending Triangle', 'Range-bound Consolidation'."),
@@ -15,20 +15,8 @@ const PatternSchema = z.object({
   historicalStat: z.string().describe("One sentence citing a plausible historical base rate for how this kind of setup has resolved."),
 });
 
-const RiskSchema = z.object({
-  riskScore: z.number().describe("0-100, higher = riskier (valuation, sector, drawdown potential)."),
-  momentumScore: z.number().describe("0-100, higher = stronger recent trend."),
-  volatilityScore: z.number().describe("0-100, higher = choppier day-to-day moves."),
-  overallScore: z.number().describe("0-100 composite AI score blending the above with fundamentals."),
-  riskExplain: z.string().describe("1-2 sentences grounding the risk score in this stock's specific fundamentals/sector."),
-  momentumExplain: z.string().describe("1-2 sentences grounding the momentum score in the recent price action given."),
-  volatilityExplain: z.string().describe("1-2 sentences grounding the volatility score in the data given."),
-  overallExplain: z.string().describe("1-2 sentences summarizing why the composite score is what it is."),
-});
-
-const PatternRiskSchema = z.object({
+const PatternOnlySchema = z.object({
   pattern: PatternSchema,
-  risk: RiskSchema,
 });
 
 export type AICoachResult = {
@@ -58,30 +46,15 @@ function todayLabel() {
   return new Date().toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
-function fallbackPatternAndRisk(ticker: string, stock: Stock): Pick<AICoachResult, "pattern" | "risk"> {
-  return {
-    pattern: getHeuristicPattern(ticker),
-    risk: {
-      risk: stock.risk,
-      momentum: stock.momentum,
-      volatility: stock.volatility,
-      overallScore: stock.aiScore,
-      riskExplain: "",
-      momentumExplain: "",
-      volatilityExplain: "",
-      overallExplain: "",
-    },
-  };
-}
-
-// Scenario predictions come from the trained ML model (lib/ml/scenarioModel.ts)
-// — deterministic, local, and independent of the OpenAI call below, so a rate
-// limit or outage on either data source can't take the other one down with it.
-// Pattern Detection and the Risk Meter still come from one OpenAI call
-// grounded in the stock's live news/earnings/fundamentals, falling back to
-// static heuristics on any failure (missing key, refusal, parse error, rate
-// limit, timeout). Cached once per ticker per day so repeated "Coach Me!"
-// clicks don't re-spend tokens or re-run the model unnecessarily.
+// Scenario predictions AND the Risk Meter both come from the trained ML
+// model (lib/ml/scenarioModel.ts) — deterministic, local, and independent
+// of the OpenAI call below, so a rate limit or outage on either data source
+// can't take the other one down with it. Only Pattern Detection still comes
+// from OpenAI grounded in the stock's live news/earnings/fundamentals,
+// falling back to a static heuristic on any failure (missing key, refusal,
+// parse error, rate limit, timeout). Cached once per ticker per day so
+// repeated "Coach Me!" clicks don't re-spend tokens or re-run anything
+// unnecessarily.
 export async function getAICoachAnalysis(stock: Stock): Promise<AICoachResult> {
   const dateKey = todayKey();
   const cacheKey = stock.ticker.toUpperCase();
@@ -95,17 +68,18 @@ export async function getAICoachAnalysis(stock: Stock): Promise<AICoachResult> {
 
 async function computeAICoach(stock: Stock): Promise<AICoachResult> {
   const scenarios = predictScenarios(stock.history);
+  const risk = computeMLRiskScores(stock.history, stock.ticker);
 
   try {
-    const { pattern, risk } = await callOpenAIForPatternAndRisk(stock);
+    const pattern = await callOpenAIForPattern(stock);
     return { scenarios, pattern, risk, source: "ai" };
   } catch (err) {
-    console.error(`[aiCoach] pattern/risk falling back for ${stock.ticker}:`, err);
-    return { scenarios, ...fallbackPatternAndRisk(stock.ticker, stock), source: "fallback" };
+    console.error(`[aiCoach] pattern falling back for ${stock.ticker}:`, err);
+    return { scenarios, pattern: getHeuristicPattern(stock.ticker), risk, source: "fallback" };
   }
 }
 
-async function callOpenAIForPatternAndRisk(stock: Stock): Promise<Pick<AICoachResult, "pattern" | "risk">> {
+async function callOpenAIForPattern(stock: Stock): Promise<Pattern> {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error("OPENAI_API_KEY is not set.");
 
@@ -126,7 +100,7 @@ async function callOpenAIForPatternAndRisk(stock: Stock): Promise<Pick<AICoachRe
       .map((e) => `- ${e.period}: actual ${e.actual ?? "N/A"} vs estimate ${e.estimate ?? "N/A"}`)
       .join("\n") || "No recent earnings data available.";
 
-  const prompt = `You are a financial-education assistant generating illustrative, transparent AI analysis (not investment advice) for a stock coaching app. You produce two things from the same data: pattern detection, and a risk/momentum/volatility read.
+  const prompt = `You are a financial-education assistant generating illustrative, transparent AI analysis (not investment advice) for a stock coaching app. You produce pattern detection from the data below.
 
 Ticker: ${stock.ticker} (${stock.name})
 Sector: ${stock.sector}
@@ -143,11 +117,7 @@ ${newsSummary}
 Recent earnings:
 ${earningsSummary}
 
-Produce both of the following, grounded in the specific data above wherever possible — avoid generic language:
-
-1. Pattern: identify the chart/technical setup the recent closes suggest (e.g. a flag, triangle, channel, range-bound consolidation), its direction, a confidence percentage, why it matters, and a plausible historical base rate for that kind of setup.
-
-2. Risk: score risk, momentum, and volatility each 0-100 (higher = more of that quality), plus a 0-100 overall composite score, each with a short grounded explanation.
+Identify the chart/technical setup the recent closes suggest (e.g. a flag, triangle, channel, range-bound consolidation), its direction, a confidence percentage, why it matters, and a plausible historical base rate for that kind of setup — grounded in the specific data above wherever possible, avoid generic language.
 
 Answer directly with the structured result — no exploratory reasoning needed, this is a quick synthesis of the data already given to you.`;
 
@@ -160,8 +130,8 @@ Answer directly with the structured result — no exploratory reasoning needed, 
   const completion = await client.chat.completions.parse({
     model: "gpt-5.6-luna",
     reasoning_effort: "none",
-    max_completion_tokens: 1000,
-    response_format: zodResponseFormat(PatternRiskSchema, "pattern_risk_analysis"),
+    max_completion_tokens: 700,
+    response_format: zodResponseFormat(PatternOnlySchema, "pattern_analysis"),
     messages: [{ role: "user", content: prompt }],
   });
 
@@ -170,26 +140,14 @@ Answer directly with the structured result — no exploratory reasoning needed, 
     throw new Error("AI coach analysis was refused or returned no parsed output.");
   }
 
-  const { pattern, risk } = message.parsed;
+  const { pattern } = message.parsed;
 
   return {
-    pattern: {
-      name: pattern.name,
-      confidencePct: Math.round(Math.min(100, Math.max(0, pattern.confidencePct))),
-      detectedOn: todayLabel(),
-      direction: pattern.direction,
-      explanation: pattern.explanation,
-      historicalStat: pattern.historicalStat,
-    },
-    risk: {
-      risk: Math.round(Math.min(100, Math.max(0, risk.riskScore))),
-      momentum: Math.round(Math.min(100, Math.max(0, risk.momentumScore))),
-      volatility: Math.round(Math.min(100, Math.max(0, risk.volatilityScore))),
-      overallScore: Math.round(Math.min(100, Math.max(0, risk.overallScore))),
-      riskExplain: risk.riskExplain,
-      momentumExplain: risk.momentumExplain,
-      volatilityExplain: risk.volatilityExplain,
-      overallExplain: risk.overallExplain,
-    },
+    name: pattern.name,
+    confidencePct: Math.round(Math.min(100, Math.max(0, pattern.confidencePct))),
+    detectedOn: todayLabel(),
+    direction: pattern.direction,
+    explanation: pattern.explanation,
+    historicalStat: pattern.historicalStat,
   };
 }

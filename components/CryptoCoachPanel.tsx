@@ -2,19 +2,19 @@
 
 import { Scenario, Stock } from "@/lib/types";
 import { ScenarioSimulator } from "@/components/ScenarioSimulator";
-import { RiskMeter } from "@/components/RiskMeter";
+import { RiskMeter, AIRiskOverride } from "@/components/RiskMeter";
 import { DayTradingSim } from "@/components/DayTradingSim";
 import { TabCarousel } from "@/components/ui/TabCarousel";
 
 /**
  * Crypto's coach experience is scoped to what's actually price-based: the
- * same trained ML model used for stocks (lib/ml/scenarioModel.ts) run on
- * this coin's own closes, a heuristic (non-AI) risk/momentum/volatility
- * read, and the Day Trading Sim. No Pattern Detection here — that panel's
- * OpenAI prompt is built around company news/earnings/fundamentals, none
- * of which exist for a cryptocurrency in this app's data layer.
+ * same trained ML model used for stocks (lib/ml/scenarioModel.ts) drives
+ * both the Prediction Simulator and the Risk Meter here, run on this coin's
+ * own closes, plus the Day Trading Sim. No Pattern Detection — that panel's
+ * OpenAI prompt is built around company news/earnings/fundamentals, none of
+ * which exist for a cryptocurrency in this app's data layer.
  */
-export function CryptoCoachPanel({ crypto, scenarios }: { crypto: Stock; scenarios: Scenario[] }) {
+export function CryptoCoachPanel({ crypto, scenarios, risk }: { crypto: Stock; scenarios: Scenario[]; risk: AIRiskOverride }) {
   return (
     <div className="space-y-4">
       <TabCarousel
@@ -30,10 +30,10 @@ export function CryptoCoachPanel({ crypto, scenarios }: { crypto: Stock; scenari
           {
             key: "risk",
             label: "Risk Score",
-            desc: "Momentum, risk and volatility — heuristic, not AI",
+            desc: "Momentum, risk and volatility, from the same ML model",
             color: "#3987e5",
             emoji: "🧭",
-            content: <RiskMeter stock={crypto} />,
+            content: <RiskMeter stock={crypto} ai={risk} />,
           },
           {
             key: "daysim",
@@ -47,10 +47,10 @@ export function CryptoCoachPanel({ crypto, scenarios }: { crypto: Stock; scenari
       />
 
       <p className="text-[11px] text-ink-muted">
-        The Prediction Simulator is the exact same model trained for stocks (5 years of price action across 500+
-        S&amp;P stocks) — run here on {crypto.ticker}&apos;s own recent price history instead. Risk Score is a
-        transparent heuristic, not AI; there&apos;s no Pattern Detection for crypto yet since that relies on
-        company news and earnings data that doesn&apos;t exist for a coin.
+        The Prediction Simulator and Risk Score both run the exact same model trained for stocks (5 years of price
+        action across 500+ S&amp;P stocks) — on {crypto.ticker}&apos;s own recent price history instead. There&apos;s
+        no Pattern Detection for crypto yet since that relies on company news and earnings data that doesn&apos;t
+        exist for a coin.
       </p>
     </div>
   );

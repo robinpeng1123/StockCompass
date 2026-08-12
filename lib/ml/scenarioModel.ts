@@ -116,6 +116,19 @@ function buildTrigger(label: Label, f: Record<FeatureName, number>): string {
 
 const RANGE_SCALE_MIN = 0.4;
 const RANGE_SCALE_MAX = 2.5;
+const MIN_WINDOW = Math.max(11, W.windowDays - 5);
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.max(lo, Math.min(hi, n));
+}
+
+/** Standardized features + class probabilities for one window of closes — the one place the trained weights actually run. */
+function runModel(window: number[]): { features: Record<FeatureName, number>; probs: number[] } {
+  const features = computeFeatures(window);
+  const x = W.featureNames.map((name, i) => (features[name] - W.featureMean[i]) / (W.featureStd[i] || 1));
+  const logits = W.bias.map((b, c) => b + x.reduce((s, xf, f) => s + xf * W.weights[f][c], 0));
+  return { features, probs: softmax(logits) };
+}
 
 /**
  * Given a stock's recent daily closes (oldest -> newest — exactly what
@@ -126,7 +139,7 @@ const RANGE_SCALE_MAX = 2.5;
  */
 export function predictScenarios(closes: number[]): Scenario[] {
   const window = closes.slice(-W.windowDays);
-  if (window.length < Math.max(11, W.windowDays - 5)) {
+  if (window.length < MIN_WINDOW) {
     return [
       { label: "Bullish", trigger: "Not enough price history yet for a model read.", probabilityPct: 33, rangeLowPct: 2, rangeHighPct: 8 },
       { label: "Neutral", trigger: "Not enough price history yet for a model read.", probabilityPct: 34, rangeLowPct: -2, rangeHighPct: 2 },
@@ -134,13 +147,10 @@ export function predictScenarios(closes: number[]): Scenario[] {
     ];
   }
 
-  const features = computeFeatures(window);
-  const x = W.featureNames.map((name, i) => (features[name] - W.featureMean[i]) / (W.featureStd[i] || 1));
-  const logits = W.bias.map((b, c) => b + x.reduce((s, xf, f) => s + xf * W.weights[f][c], 0));
-  const probs = softmax(logits);
+  const { features, probs } = runModel(window);
   const probPct = roundToSum100(probs);
 
-  const volScale = Math.min(RANGE_SCALE_MAX, Math.max(RANGE_SCALE_MIN, features.vol_20d / (W.avgVol20d || 1)));
+  const volScale = clamp(features.vol_20d / (W.avgVol20d || 1), RANGE_SCALE_MIN, RANGE_SCALE_MAX);
 
   // Output in the UI's conventional Bullish/Neutral/Bearish order regardless
   // of the training label order (Bearish/Neutral/Bullish, alphabetical-ish).
@@ -156,4 +166,71 @@ export function predictScenarios(closes: number[]): Scenario[] {
       rangeHighPct: range.p75 * volScale,
     };
   }) as Scenario[];
+}
+
+export type MLRiskScores = {
+  risk: number;
+  momentum: number;
+  volatility: number;
+  overallScore: number;
+  riskExplain: string;
+  momentumExplain: string;
+  volatilityExplain: string;
+  overallExplain: string;
+};
+
+/** Maps a z-score to 0-100 via a logistic squash: 0 -> 50, +2 -> ~88, -2 -> ~12. */
+function zTo100(z: number): number {
+  return Math.round(100 / (1 + Math.exp(-z)));
+}
+
+function zScore(value: number, featureName: FeatureName): number {
+  const i = W.featureNames.indexOf(featureName);
+  return (value - W.featureMean[i]) / (W.featureStd[i] || 1);
+}
+
+/**
+ * Risk/Momentum/Volatility/Overall scores derived from the SAME trained
+ * model as predictScenarios — not a separate heuristic. Volatility and
+ * momentum are the model's own vol_20d/ret_20d features, expressed as a
+ * z-score against the training distribution (500+ stocks, 5 years) rather
+ * than an arbitrary multiplier. Risk is majority-weighted by the model's
+ * own predicted P(Bearish); Overall by P(Bullish) net of volatility.
+ */
+export function computeMLRiskScores(closes: number[], ticker: string): MLRiskScores {
+  const window = closes.slice(-W.windowDays);
+  if (window.length < MIN_WINDOW) {
+    return {
+      risk: 50,
+      momentum: 50,
+      volatility: 50,
+      overallScore: 50,
+      riskExplain: `Not enough price history yet for a model read on ${ticker}.`,
+      momentumExplain: `Not enough price history yet for a model read on ${ticker}.`,
+      volatilityExplain: `Not enough price history yet for a model read on ${ticker}.`,
+      overallExplain: `Not enough price history yet for a model read on ${ticker}.`,
+    };
+  }
+
+  const { features, probs } = runModel(window);
+  const bearishProb = probs[W.labels.indexOf("Bearish")];
+  const bullishProb = probs[W.labels.indexOf("Bullish")];
+
+  const volatility = clamp(zTo100(zScore(features.vol_20d, "vol_20d")), 0, 100);
+  const momentum = clamp(zTo100(zScore(features.ret_20d, "ret_20d")), 0, 100);
+  const risk = clamp(Math.round(bearishProb * 100 * 0.6 + volatility * 0.4), 0, 100);
+  const overallScore = clamp(Math.round(bullishProb * 100 * 0.5 + momentum * 0.3 + (100 - volatility) * 0.2), 0, 100);
+
+  const trendDesc = features.ret_20d >= 0 ? `up ${features.ret_20d.toFixed(1)}%` : `down ${Math.abs(features.ret_20d).toFixed(1)}%`;
+
+  return {
+    risk,
+    momentum,
+    volatility,
+    overallScore,
+    riskExplain: `The model puts a ${Math.round(bearishProb * 100)}% probability on a bearish outcome for ${ticker} over the next month, and recent volatility (${features.vol_20d.toFixed(1)}% daily) is ${volatility >= 60 ? "elevated" : volatility <= 40 ? "contained" : "moderate"} relative to the 500+ stocks the model trained on — together that's what sets this risk score.`,
+    momentumExplain: `${ticker} is ${trendDesc} over the last ~21 trading days, which is ${momentum >= 60 ? "stronger than" : momentum <= 40 ? "weaker than" : "in line with"} the typical stock in the model's training set over the same window.`,
+    volatilityExplain: `Daily price swings have averaged ${features.vol_20d.toFixed(1)}% recently, which reads as ${volatility >= 60 ? "choppier than most" : volatility <= 40 ? "calmer than most" : "fairly typical"} against the model's training distribution.`,
+    overallExplain: `The model gives ${ticker} a ${Math.round(bullishProb * 100)}% probability of a bullish outcome — blended with the momentum and volatility reads above, that nets out to ${overallScore}/100.`,
+  };
 }

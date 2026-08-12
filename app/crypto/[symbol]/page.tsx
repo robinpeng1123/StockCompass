@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getLiveCrypto } from "@/lib/liveCrypto";
-import { predictScenarios } from "@/lib/ml/scenarioModel";
+import { predictScenarios, computeMLRiskScores } from "@/lib/ml/scenarioModel";
 import { PriceChart } from "@/components/ui/PriceChart";
 import { LiveStockHeaderPrice } from "@/components/ui/LiveStockHeaderPrice";
 import { CryptoCoachPanel } from "@/components/CryptoCoachPanel";
@@ -23,11 +23,12 @@ export default async function CryptoDetailPage({ params }: { params: Promise<{ s
   // Pure price-action model, no network call — the same ML model trained
   // for stocks (lib/ml/scenarioModel.ts), run on this coin's own closes.
   const scenarios = predictScenarios(crypto.history);
+  const risk = computeMLRiskScores(crypto.history, crypto.ticker);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <CoachSection>
-        <CryptoCoachPanel crypto={crypto} scenarios={scenarios} />
+        <CryptoCoachPanel crypto={crypto} scenarios={scenarios} risk={risk} />
       </CoachSection>
 
       <Link href="/crypto" className="inline-block text-xs text-ink-muted hover:text-ink-primary">
