@@ -135,10 +135,3 @@ export function runScreen(rawQuery: string, universe: Stock[]): ScreenResult {
   pool = [...pool].sort((a, b) => b.aiScore - a.aiScore);
   return { criteria, results: pool.slice(0, 8) };
 }
-
-export const EXAMPLE_QUERIES = [
-  "Cheap AI companies",
-  "Stocks making new highs",
-  "Companies similar to Tesla",
-  "Best dividend stocks under $100",
-];

@@ -76,10 +76,12 @@ export function ScenarioComboChart({
   const xAt = (i: number) => axisW + (i / n) * usableW;
   const yAt = (v: number) => padTop + usableH - ((v - min) / span) * usableH;
 
+  const baseline = height - padBottom;
   const linesWithPoints = paths.map(({ scenario, path }) => {
     const points = path.map((v, i) => [xAt(i), yAt(v)] as const);
     const linePath = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
-    return { scenario, path, points, linePath };
+    const areaPath = `${linePath} L${points[n][0]},${baseline} L${points[0][0]},${baseline} Z`;
+    return { scenario, path, points, linePath, areaPath };
   });
 
   const yTicks = [0, 0.33, 0.66, 1].map((f) => ({ y: padTop + usableH * (1 - f), value: min + span * f }));
@@ -143,6 +145,10 @@ export function ScenarioComboChart({
               {formatPrice(t.value)}
             </text>
           </g>
+        ))}
+
+        {linesWithPoints.map(({ scenario, areaPath }) => (
+          <path key={scenario.label} d={areaPath} fill={`url(#combo-fill-${id}-${scenario.label})`} stroke="none" />
         ))}
 
         {linesWithPoints.map(({ scenario, linePath }) => (

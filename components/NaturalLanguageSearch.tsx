@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { runScreen, EXAMPLE_QUERIES } from "@/lib/nlScreener";
+import { runScreen } from "@/lib/nlScreener";
 import { Stock } from "@/lib/types";
 import { StockCard } from "./StockCard";
 import { Badge } from "./ui/Badge";
@@ -74,10 +74,6 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
     }
   }
 
-  function runExampleQuery(q: string) {
-    doSearch(q);
-  }
-
   return (
     <div>
       <form
@@ -110,18 +106,6 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
           Ask AI
         </button>
       </form>
-
-      <div className="mt-3 flex flex-wrap gap-2">
-        {EXAMPLE_QUERIES.map((ex) => (
-          <button
-            key={ex}
-            onClick={() => runExampleQuery(ex)}
-            className="rounded-full border border-white/10 bg-white/[0.02] px-3 py-1.5 text-xs text-ink-secondary transition-colors hover:border-accent-cyan/40 hover:text-ink-primary"
-          >
-            {ex}
-          </button>
-        ))}
-      </div>
 
       {status === "searching" && (
         <div className="mt-6 flex items-center gap-2 text-sm text-ink-secondary">
