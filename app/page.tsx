@@ -9,6 +9,7 @@ import { FeatureStrip } from "@/components/FeatureStrip";
 import { PriceChart } from "@/components/ui/PriceChart";
 import { LiveStockHeaderPrice } from "@/components/ui/LiveStockHeaderPrice";
 import { PortfolioCopilot } from "@/components/PortfolioCopilot";
+import { MarketSchedule } from "@/components/MarketSchedule";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Greeting } from "@/components/Greeting";
 
@@ -34,25 +35,30 @@ export default async function DashboardPage() {
 
       <FeatureStrip />
 
-      {indices.length > 0 ? (
-        <div className="grid gap-4 sm:grid-cols-3">
-          {indices.map((idx) => (
-            <StatTile
-              key={idx.symbol}
-              label={idx.label}
-              ticker={idx.symbol}
-              value={idx.value}
-              prevClose={idx.prevClose}
-              deltaPct={idx.changePct}
-              trend={idx.history}
-            />
-          ))}
+      <div className="grid gap-4 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          {indices.length > 0 ? (
+            <div className="grid h-full gap-4 sm:grid-cols-3">
+              {indices.map((idx) => (
+                <StatTile
+                  key={idx.symbol}
+                  label={idx.label}
+                  ticker={idx.symbol}
+                  value={idx.value}
+                  prevClose={idx.prevClose}
+                  deltaPct={idx.changePct}
+                  trend={idx.history}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <p className="text-sm text-ink-secondary">Market indices are temporarily unavailable — try refreshing in a moment.</p>
+            </Card>
+          )}
         </div>
-      ) : (
-        <Card>
-          <p className="text-sm text-ink-secondary">Market indices are temporarily unavailable — try refreshing in a moment.</p>
-        </Card>
-      )}
+        <MarketSchedule />
+      </div>
 
       <Card glow="cyan">
         <CardHeader eyebrow="Conversational Stock Search" title="Search the market in plain English" />

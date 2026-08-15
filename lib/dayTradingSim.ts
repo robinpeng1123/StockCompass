@@ -1,4 +1,5 @@
 import { generateProjectionPath } from "./projectionPath";
+import { OPEN_MIN, CLOSE_MIN, etParts, isWeekend, nextSessionDate, formatMinutes } from "./marketHours";
 
 export type HourlyCheckpoint = {
   label: string;
@@ -11,46 +12,6 @@ export type DayTradingSimResult = {
   isMarketOpenNow: boolean;
   checkpoints: HourlyCheckpoint[];
 };
-
-const OPEN_MIN = 9 * 60 + 30;
-const CLOSE_MIN = 16 * 60;
-
-function etParts(date: Date) {
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
-  const parts = fmt.formatToParts(date);
-  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
-  let hour = Number(get("hour"));
-  if (hour === 24) hour = 0;
-  return { hour, minute: Number(get("minute")), weekday: get("weekday"), monthDay: `${get("month")} ${get("day")}` };
-}
-
-function isWeekend(weekday: string) {
-  return weekday === "Sat" || weekday === "Sun";
-}
-
-function nextSessionDate(now: Date): Date {
-  const d = new Date(now);
-  d.setUTCDate(d.getUTCDate() + 1);
-  while (isWeekend(etParts(d).weekday)) d.setUTCDate(d.getUTCDate() + 1);
-  return d;
-}
-
-function formatMinutes(totalMin: number): string {
-  const h24 = Math.floor(totalMin / 60);
-  const m = totalMin % 60;
-  const period = h24 >= 12 ? "PM" : "AM";
-  let h12 = h24 % 12;
-  if (h12 === 0) h12 = 12;
-  return `${h12}:${m.toString().padStart(2, "0")} ${period}`;
-}
 
 /**
  * An hourly, illustrative intraday path from now (or the next open) to

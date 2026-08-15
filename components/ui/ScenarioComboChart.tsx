@@ -33,7 +33,7 @@ export function ScenarioComboChart({
 }) {
   const id = useId();
   const svgRef = useRef<SVGSVGElement>(null);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [hoverFrac, setHoverFrac] = useState<number | null>(null);
 
   const width = 640;
   const height = 240;
@@ -94,16 +94,22 @@ export function ScenarioComboChart({
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
     const relX = ((e.clientX - rect.left) / rect.width) * width;
-    const idx = Math.round(((relX - axisW) / usableW) * n);
-    setHoverIdx(Math.max(0, Math.min(n, idx)));
+    const frac = ((relX - axisW) / usableW) * n;
+    setHoverFrac(Math.max(0, Math.min(n, frac)));
   }
 
-  const hoverX = hoverIdx !== null ? xAt(hoverIdx) : null;
+  // Interpolated continuously between the two nearest weekly points, rather
+  // than snapping to one, so the crosshair (and each line's price readout)
+  // glides smoothly with the pointer.
+  const hoverX = hoverFrac !== null ? xAt(hoverFrac) : null;
   const hoverPct = hoverX !== null ? (hoverX / width) * 100 : 0;
+  const hoverI0 = hoverFrac !== null ? Math.floor(hoverFrac) : 0;
+  const hoverI1 = hoverFrac !== null ? Math.min(n, hoverI0 + 1) : 0;
+  const hoverT = hoverFrac !== null ? hoverFrac - hoverI0 : 0;
   const hoverDate =
-    hoverIdx === null || hoverIdx === 0
+    hoverFrac === null
       ? "Today"
-      : fmtDate(new Date(now.getTime() + (hoverIdx / n) * horizonDays * 86_400_000));
+      : fmtDate(new Date(now.getTime() + (hoverFrac / n) * horizonDays * 86_400_000));
 
   return (
     <div className="relative">
@@ -124,7 +130,7 @@ export function ScenarioComboChart({
         className="touch-none overflow-visible"
         onPointerDown={handleMove}
         onPointerMove={handleMove}
-        onPointerLeave={() => setHoverIdx(null)}
+        onPointerLeave={() => setHoverFrac(null)}
         role="img"
         aria-label={`${ticker} simulated Bullish, Neutral, and Bearish price paths from today to a ${fmtDate(endDate)} estimate`}
       >
@@ -185,7 +191,7 @@ export function ScenarioComboChart({
               <circle
                 key={scenario.label}
                 cx={hoverX}
-                cy={points[hoverIdx!][1]}
+                cy={points[hoverI0][1] + (points[hoverI1][1] - points[hoverI0][1]) * hoverT}
                 r={4}
                 fill={SCENARIO_COLOR[scenario.label]}
                 stroke="#10141f"
@@ -218,7 +224,7 @@ export function ScenarioComboChart({
         ))}
       </svg>
 
-      {hoverX !== null && hoverIdx !== null && (
+      {hoverX !== null && (
         <div
           className={`pointer-events-none absolute top-0 rounded-lg border border-white/10 bg-surface-raised px-2.5 py-1.5 text-xs shadow-lg ${
             hoverPct < 20 ? "translate-x-0" : hoverPct > 78 ? "-translate-x-full" : "-translate-x-1/2"
@@ -230,7 +236,9 @@ export function ScenarioComboChart({
             <div key={scenario.label} className="flex items-center gap-1.5 text-[11px]">
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: SCENARIO_COLOR[scenario.label] }} />
               <span className="text-ink-secondary">{scenario.label}</span>
-              <span className="ml-auto font-medium tabular-nums text-ink-primary">{formatPrice(path[hoverIdx])}</span>
+              <span className="ml-auto font-medium tabular-nums text-ink-primary">
+                {formatPrice(path[hoverI0] + (path[hoverI1] - path[hoverI0]) * hoverT)}
+              </span>
             </div>
           ))}
         </div>

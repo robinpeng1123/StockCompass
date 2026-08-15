@@ -19,7 +19,7 @@ export function DayTradingSim({
 }) {
   const id = useId();
   const svgRef = useRef<SVGSVGElement>(null);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [hoverFrac, setHoverFrac] = useState<number | null>(null);
 
   const sim = useMemo(() => {
     const neutral = scenarios.find((s) => s.label === "Neutral");
@@ -59,11 +59,26 @@ export function DayTradingSim({
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect || n <= 0) return;
     const relX = ((e.clientX - rect.left) / rect.width) * width;
-    const idx = Math.round(((relX - axisW) / usableW) * n);
-    setHoverIdx(Math.max(0, Math.min(n, idx)));
+    const frac = ((relX - axisW) / usableW) * n;
+    setHoverFrac(Math.max(0, Math.min(n, frac)));
   }
 
-  const hover = hoverIdx !== null ? points[hoverIdx] : null;
+  // Interpolated continuously between the two nearest hourly checkpoints,
+  // rather than snapping to one, so the crosshair glides smoothly with the
+  // pointer. The displayed time still names the nearer checkpoint — the
+  // simulation itself only has hourly resolution, so an interpolated
+  // "10:14 AM" would imply more precision than the data actually has.
+  let hover: readonly [number, number] | null = null;
+  let hoverPrice = 0;
+  let hoverCheckpointIdx = 0;
+  if (hoverFrac !== null && n > 0) {
+    const i0 = Math.floor(hoverFrac);
+    const i1 = Math.min(n, i0 + 1);
+    const t = hoverFrac - i0;
+    hover = [points[i0][0] + (points[i1][0] - points[i0][0]) * t, points[i0][1] + (points[i1][1] - points[i0][1]) * t];
+    hoverPrice = prices[i0] + (prices[i1] - prices[i0]) * t;
+    hoverCheckpointIdx = t < 0.5 ? i0 : i1;
+  }
   const hoverPct = hover ? (hover[0] / width) * 100 : 0;
 
   return (
@@ -86,7 +101,7 @@ export function DayTradingSim({
           className="touch-none overflow-visible"
           onPointerDown={handleMove}
           onPointerMove={handleMove}
-          onPointerLeave={() => setHoverIdx(null)}
+          onPointerLeave={() => setHoverFrac(null)}
           role="img"
           aria-label={`Simulated hour-by-hour price path for ${ticker} through market close`}
         >
@@ -134,15 +149,15 @@ export function DayTradingSim({
           ))}
         </svg>
 
-        {hover && hoverIdx !== null && (
+        {hover && (
           <div
             className={`pointer-events-none absolute top-0 rounded-lg border border-white/10 bg-surface-raised px-2.5 py-1.5 text-xs shadow-lg ${
               hoverPct < 12 ? "translate-x-0" : hoverPct > 88 ? "-translate-x-full" : "-translate-x-1/2"
             }`}
             style={{ left: `${hoverPct}%` }}
           >
-            <div className="font-semibold text-ink-primary">{formatPrice(checkpoints[hoverIdx].price)}</div>
-            <div className="text-[10px] text-ink-muted">{checkpoints[hoverIdx].label}</div>
+            <div className="font-semibold text-ink-primary">{formatPrice(hoverPrice)}</div>
+            <div className="text-[10px] text-ink-muted">{checkpoints[hoverCheckpointIdx].label}</div>
           </div>
         )}
       </div>

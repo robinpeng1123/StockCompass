@@ -24,7 +24,7 @@ export function PriceChart({ ticker }: { ticker: string }) {
   const [rangeKey, setRangeKey] = useState<ChartRangeKey>("1mo");
   const [points, setPoints] = useState<Point[]>([]);
   const [loading, setLoading] = useState(true);
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
+  const [hoverFrac, setHoverFrac] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -81,13 +81,26 @@ export function PriceChart({ ticker }: { ticker: string }) {
 
   function handleMove(e: React.PointerEvent<SVGSVGElement>) {
     const rect = svgRef.current?.getBoundingClientRect();
-    if (!rect || data.length === 0) return;
+    if (!rect || data.length < 2) return;
     const relX = ((e.clientX - rect.left) / rect.width) * width;
-    const idx = Math.round(((relX - axisW - padX) / usableW) * (data.length - 1));
-    setHoverIdx(Math.max(0, Math.min(data.length - 1, idx)));
+    const frac = ((relX - axisW - padX) / usableW) * (data.length - 1);
+    setHoverFrac(Math.max(0, Math.min(data.length - 1, frac)));
   }
 
-  const hover = hoverIdx !== null ? xy[hoverIdx] : null;
+  // Interpolated continuously between the two nearest points, rather than
+  // snapping to the nearest one, so the crosshair glides smoothly with the
+  // pointer instead of jumping between fixed positions.
+  let hover: readonly [number, number] | null = null;
+  let hoverPrice = 0;
+  let hoverTime = 0;
+  if (hoverFrac !== null && data.length > 1) {
+    const i0 = Math.floor(hoverFrac);
+    const i1 = Math.min(data.length - 1, i0 + 1);
+    const t = hoverFrac - i0;
+    hover = [xy[i0][0] + (xy[i1][0] - xy[i0][0]) * t, xy[i0][1] + (xy[i1][1] - xy[i0][1]) * t];
+    hoverPrice = data[i0] + (data[i1] - data[i0]) * t;
+    hoverTime = points[i0].t + (points[i1].t - points[i0].t) * t;
+  }
   const hoverPct = hover ? (hover[0] / width) * 100 : 0;
 
   return (
@@ -101,7 +114,7 @@ export function PriceChart({ ticker }: { ticker: string }) {
           className="touch-none overflow-visible"
           onPointerDown={handleMove}
           onPointerMove={handleMove}
-          onPointerLeave={() => setHoverIdx(null)}
+          onPointerLeave={() => setHoverFrac(null)}
           role="img"
           aria-label={`${RANGE_LABELS[rangeKey]} price history with hover detail`}
         >
@@ -149,15 +162,15 @@ export function PriceChart({ ticker }: { ticker: string }) {
           </div>
         )}
 
-        {hover && hoverIdx !== null && !loading && (
+        {hover && !loading && (
           <div
             className={`pointer-events-none absolute top-0 rounded-lg border border-white/10 bg-surface-raised px-2.5 py-1.5 text-xs shadow-lg ${
               hoverPct < 12 ? "translate-x-0" : hoverPct > 88 ? "-translate-x-full" : "-translate-x-1/2"
             }`}
             style={{ left: `${hoverPct}%` }}
           >
-            <div className="font-semibold text-ink-primary">{formatPrice(data[hoverIdx])}</div>
-            <div className="text-[10px] text-ink-muted">{formatAxisDate(points[hoverIdx].t, rangeKey)}</div>
+            <div className="font-semibold text-ink-primary">{formatPrice(hoverPrice)}</div>
+            <div className="text-[10px] text-ink-muted">{formatAxisDate(hoverTime, rangeKey)}</div>
           </div>
         )}
       </div>
