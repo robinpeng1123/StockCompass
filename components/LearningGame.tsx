@@ -1,109 +1,326 @@
 "use client";
 
-import { useState } from "react";
-import { LEARNING_MODULES, LearningModule } from "@/lib/learningGame";
+import { useEffect, useState } from "react";
+import { ANIMALS, Animal, TOPICS, Topic, TopicKey, getLevelQuestions, QuizQuestion } from "@/lib/learningGame";
 import { CandlestickChart } from "@/components/ui/CandlestickChart";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { cx } from "@/lib/utils";
 
+const STORAGE_KEY = "stockcompass:learninggame:v2";
+
+type Progress = {
+  animalKey: string | null;
+  unlocked: Record<TopicKey, number>; // highest playable level per topic, 1-indexed
+};
+
+const DEFAULT_PROGRESS: Progress = {
+  animalKey: null,
+  unlocked: { stocks: 1, crypto: 1, daytrading: 1, candlesticks: 1 },
+};
+
+function loadProgress(): Progress {
+  if (typeof window === "undefined") return DEFAULT_PROGRESS;
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (!raw) return DEFAULT_PROGRESS;
+    const parsed = JSON.parse(raw);
+    return {
+      animalKey: typeof parsed.animalKey === "string" ? parsed.animalKey : null,
+      unlocked: { ...DEFAULT_PROGRESS.unlocked, ...(parsed.unlocked ?? {}) },
+    };
+  } catch {
+    return DEFAULT_PROGRESS;
+  }
+}
+function saveProgress(p: Progress) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(p));
+}
+
 type Screen =
-  | { view: "select" }
-  | { view: "quiz"; moduleKey: string; qIndex: number; answers: number[] }
-  | { view: "results"; moduleKey: string; answers: number[] };
+  | { view: "animal" }
+  | { view: "topics" }
+  | { view: "path"; topic: TopicKey }
+  | { view: "quiz"; topic: TopicKey; level: number; qIndex: number; answers: number[] }
+  | { view: "levelComplete"; topic: TopicKey; level: number; answers: number[] };
 
 export function LearningGame() {
-  const [screen, setScreen] = useState<Screen>({ view: "select" });
-  const [bestScores, setBestScores] = useState<Record<string, number>>({});
+  const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
+  const [ready, setReady] = useState(false);
+  const [screen, setScreen] = useState<Screen>({ view: "animal" });
 
-  function startModule(key: string) {
-    setScreen({ view: "quiz", moduleKey: key, qIndex: 0, answers: [] });
+  useEffect(() => {
+    const p = loadProgress();
+    setProgress(p);
+    setScreen({ view: p.animalKey ? "topics" : "animal" });
+    setReady(true);
+  }, []);
+
+  function chooseAnimal(key: string) {
+    const next = { ...progress, animalKey: key };
+    setProgress(next);
+    saveProgress(next);
+    setScreen({ view: "topics" });
+  }
+
+  function startLevel(topic: TopicKey, level: number) {
+    setScreen({ view: "quiz", topic, level, qIndex: 0, answers: [] });
   }
 
   function handleAnswer(selected: number) {
     if (screen.view !== "quiz") return;
-    const mod = LEARNING_MODULES.find((m) => m.key === screen.moduleKey)!;
+    const questions = getLevelQuestions(screen.topic, screen.level);
     const answers = [...screen.answers, selected];
-    if (screen.qIndex + 1 < mod.questions.length) {
+
+    if (screen.qIndex + 1 < questions.length) {
       setScreen({ ...screen, qIndex: screen.qIndex + 1, answers });
-    } else {
-      const correct = answers.filter((a, i) => a === mod.questions[i].correctIndex).length;
-      setBestScores((prev) => ({ ...prev, [screen.moduleKey]: Math.max(prev[screen.moduleKey] ?? 0, correct) }));
-      setScreen({ view: "results", moduleKey: screen.moduleKey, answers });
+      return;
     }
+
+    const correct = answers.filter((a, i) => a === questions[i].correctIndex).length;
+    const passed = correct >= Math.ceil(questions.length / 2);
+    if (passed) {
+      const next = {
+        ...progress,
+        unlocked: {
+          ...progress.unlocked,
+          [screen.topic]: Math.max(progress.unlocked[screen.topic], screen.level + 1),
+        },
+      };
+      setProgress(next);
+      saveProgress(next);
+    }
+    setScreen({ view: "levelComplete", topic: screen.topic, level: screen.level, answers });
   }
 
-  if (screen.view === "select") {
-    return <ModuleSelect bestScores={bestScores} onSelect={startModule} />;
+  if (!ready) return null;
+
+  const animal = ANIMALS.find((a) => a.key === progress.animalKey) ?? null;
+
+  if (screen.view === "animal") {
+    return <AnimalSelect onSelect={chooseAnimal} />;
   }
 
-  const mod = LEARNING_MODULES.find((m) => m.key === screen.moduleKey)!;
-
-  if (screen.view === "quiz") {
+  if (screen.view === "topics") {
     return (
-      <QuizScreen
-        module={mod}
-        qIndex={screen.qIndex}
-        onAnswer={handleAnswer}
-        onExit={() => setScreen({ view: "select" })}
+      <TopicSelect
+        animal={animal}
+        unlocked={progress.unlocked}
+        onSelectTopic={(topic) => setScreen({ view: "path", topic })}
+        onChangeAnimal={() => setScreen({ view: "animal" })}
       />
     );
   }
 
+  if (screen.view === "path") {
+    const topic = TOPICS.find((t) => t.key === screen.topic)!;
+    return (
+      <LevelPath
+        topic={topic}
+        animal={animal}
+        unlockedLevel={progress.unlocked[topic.key]}
+        onSelectLevel={(level) => startLevel(topic.key, level)}
+        onBack={() => setScreen({ view: "topics" })}
+      />
+    );
+  }
+
+  if (screen.view === "quiz") {
+    const topic = TOPICS.find((t) => t.key === screen.topic)!;
+    const questions = getLevelQuestions(screen.topic, screen.level);
+    return (
+      <QuizScreen
+        topic={topic}
+        level={screen.level}
+        questions={questions}
+        qIndex={screen.qIndex}
+        onAnswer={handleAnswer}
+        onExit={() => setScreen({ view: "path", topic: screen.topic })}
+      />
+    );
+  }
+
+  const topic = TOPICS.find((t) => t.key === screen.topic)!;
+  const questions = getLevelQuestions(screen.topic, screen.level);
   return (
-    <ResultsScreen
-      module={mod}
+    <LevelComplete
+      topic={topic}
+      level={screen.level}
+      questions={questions}
       answers={screen.answers}
-      onRetry={() => startModule(screen.moduleKey)}
-      onExit={() => setScreen({ view: "select" })}
+      animal={animal}
+      onContinue={() => setScreen({ view: "path", topic: screen.topic })}
+      onRetry={() => startLevel(screen.topic, screen.level)}
     />
   );
 }
 
-function ModuleSelect({ bestScores, onSelect }: { bestScores: Record<string, number>; onSelect: (key: string) => void }) {
+function AnimalSelect({ onSelect }: { onSelect: (key: string) => void }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
-      {LEARNING_MODULES.map((mod) => {
-        const best = bestScores[mod.key];
-        const total = mod.questions.length;
-        return (
+    <div className="flex flex-col items-center gap-6 py-8 text-center">
+      <div>
+        <h2 className="text-xl font-semibold text-ink-primary">Pick your companion</h2>
+        <p className="mt-1 text-sm text-ink-secondary">They'll stick with you through every level.</p>
+      </div>
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        {ANIMALS.map((a) => (
           <button
-            key={mod.key}
-            onClick={() => onSelect(mod.key)}
-            className="glass-panel flex flex-col items-start gap-2 p-5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+            key={a.key}
+            onClick={() => onSelect(a.key)}
+            className="glass-panel flex flex-col items-center gap-2 p-6 transition-transform hover:scale-105 hover:border-accent-cyan/40"
           >
-            <div className="flex w-full items-center justify-between">
-              <span className="text-2xl">{mod.emoji}</span>
-              {best !== undefined && (
-                <Badge status={best === total ? "good" : "neutral"} className="px-2 py-0.5 text-[10px]">
-                  Best: {best}/{total}
-                </Badge>
-              )}
-            </div>
-            <div className="text-base font-semibold text-ink-primary">{mod.title}</div>
-            <p className="text-xs leading-relaxed text-ink-secondary">{mod.description}</p>
-            <span className="mt-1 text-xs font-medium text-accent-cyan">{best !== undefined ? "Play again →" : "Start →"}</span>
+            <span className="text-5xl">{a.emoji}</span>
+            <span className="text-sm font-medium text-ink-primary">{a.label}</span>
           </button>
-        );
-      })}
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function TopicSelect({
+  animal,
+  unlocked,
+  onSelectTopic,
+  onChangeAnimal,
+}: {
+  animal: Animal | null;
+  unlocked: Record<TopicKey, number>;
+  onSelectTopic: (topic: TopicKey) => void;
+  onChangeAnimal: () => void;
+}) {
+  return (
+    <div className="space-y-4">
+      {animal && (
+        <div className="flex items-center justify-between rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5">
+          <div className="flex items-center gap-2 text-sm text-ink-secondary">
+            <span className="text-xl">{animal.emoji}</span>
+            Playing as <span className="font-medium text-ink-primary">{animal.label}</span>
+          </div>
+          <button onClick={onChangeAnimal} className="text-xs font-medium text-ink-muted hover:text-ink-primary">
+            Change
+          </button>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {TOPICS.map((t) => {
+          const level = unlocked[t.key];
+          const complete = level > t.totalLevels;
+          const pct = Math.min(100, Math.round(((level - 1) / t.totalLevels) * 100));
+          return (
+            <button
+              key={t.key}
+              onClick={() => onSelectTopic(t.key)}
+              className="glass-panel flex flex-col items-start gap-2 p-5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+            >
+              <div className="flex w-full items-center justify-between">
+                <span className="text-2xl">{t.emoji}</span>
+                <Badge status={complete ? "good" : "neutral"} className="px-2 py-0.5 text-[10px]">
+                  {complete ? "Complete" : `Level ${level}/${t.totalLevels}`}
+                </Badge>
+              </div>
+              <div className="text-base font-semibold text-ink-primary">{t.title}</div>
+              <p className="text-xs leading-relaxed text-ink-secondary">{t.description}</p>
+              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-accent-cyan to-accent-violet"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function LevelPath({
+  topic,
+  animal,
+  unlockedLevel,
+  onSelectLevel,
+  onBack,
+}: {
+  topic: Topic;
+  animal: Animal | null;
+  unlockedLevel: number;
+  onSelectLevel: (level: number) => void;
+  onBack: () => void;
+}) {
+  const levels = Array.from({ length: topic.totalLevels }, (_, i) => i + 1);
+  const sections: number[][] = [];
+  for (let i = 0; i < levels.length; i += 10) sections.push(levels.slice(i, i + 10));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <button onClick={onBack} className="text-xs font-medium text-ink-muted hover:text-ink-primary">
+          ← Topics
+        </button>
+        <div className="flex items-center gap-2 text-sm text-ink-secondary">
+          <span className="text-xl">{topic.emoji}</span>
+          <span className="font-medium text-ink-primary">{topic.title}</span>
+        </div>
+        <span className="text-xl">{animal ? animal.emoji : ""}</span>
+      </div>
+
+      <div className="glass-panel max-h-[560px] overflow-y-auto p-6">
+        {sections.map((section, sIdx) => (
+          <div key={sIdx} className="mb-6 last:mb-0">
+            <div className="mb-4 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
+              Levels {section[0]}–{section[section.length - 1]}
+            </div>
+            <div className="flex flex-col items-center gap-3">
+              {section.map((level) => {
+                const state = level < unlockedLevel ? "done" : level === unlockedLevel ? "current" : "locked";
+                const offset = Math.round(Math.sin(level * 0.9) * 46);
+                return (
+                  <button
+                    key={level}
+                    disabled={state === "locked"}
+                    onClick={() => onSelectLevel(level)}
+                    style={{ transform: `translateX(${offset}px)` }}
+                    className={cx(
+                      "flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-transform",
+                      state === "done" && "border-status-good/40 bg-status-good/15 text-status-good hover:scale-105",
+                      state === "current" &&
+                        "scale-110 border-accent-cyan bg-gradient-to-br from-accent-cyan to-accent-violet text-plane shadow-glow",
+                      state === "locked" && "border-white/10 bg-white/[0.02] text-ink-muted"
+                    )}
+                  >
+                    {state === "done" ? "✓" : state === "locked" ? "🔒" : level}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 function QuizScreen({
-  module,
+  topic,
+  level,
+  questions,
   qIndex,
   onAnswer,
   onExit,
 }: {
-  module: LearningModule;
+  topic: Topic;
+  level: number;
+  questions: QuizQuestion[];
   qIndex: number;
   onAnswer: (selected: number) => void;
   onExit: () => void;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
-  const question = module.questions[qIndex];
-  const total = module.questions.length;
+  const question = questions[qIndex];
+  const total = questions.length;
 
   function choose(i: number) {
     if (selected !== null) return;
@@ -119,7 +336,7 @@ function QuizScreen({
   return (
     <Card>
       <CardHeader
-        eyebrow={module.title}
+        eyebrow={`${topic.title} · Level ${level}`}
         title={`Question ${qIndex + 1} of ${total}`}
         action={
           <button onClick={onExit} className="text-xs font-medium text-ink-muted hover:text-ink-primary">
@@ -177,7 +394,7 @@ function QuizScreen({
             onClick={next}
             className="mt-3 rounded-lg bg-gradient-to-r from-accent-cyan to-accent-violet px-4 py-2 text-xs font-semibold text-plane hover:opacity-90"
           >
-            {qIndex + 1 < total ? "Next question →" : "See results →"}
+            {qIndex + 1 < total ? "Next question →" : "Finish level →"}
           </button>
         </div>
       )}
@@ -185,40 +402,48 @@ function QuizScreen({
   );
 }
 
-function ResultsScreen({
-  module,
+function LevelComplete({
+  topic,
+  level,
+  questions,
   answers,
+  animal,
+  onContinue,
   onRetry,
-  onExit,
 }: {
-  module: LearningModule;
+  topic: Topic;
+  level: number;
+  questions: QuizQuestion[];
   answers: number[];
+  animal: Animal | null;
+  onContinue: () => void;
   onRetry: () => void;
-  onExit: () => void;
 }) {
-  const total = module.questions.length;
-  const correct = answers.filter((a, i) => a === module.questions[i].correctIndex).length;
+  const total = questions.length;
+  const correct = answers.filter((a, i) => a === questions[i].correctIndex).length;
   const pct = Math.round((correct / total) * 100);
+  const passed = correct >= Math.ceil(total / 2);
 
   return (
     <Card>
-      <CardHeader eyebrow={module.title} title="Results" />
+      <CardHeader eyebrow={`${topic.title} · Level ${level}`} title={passed ? "Level complete!" : "Almost there"} />
       <div className="flex flex-col items-center py-4 text-center">
-        <div className="text-4xl font-semibold tracking-tight text-ink-primary">
+        <span className="text-5xl">{animal ? animal.emoji : passed ? "🎉" : "💪"}</span>
+        <div className="mt-2 text-4xl font-semibold tracking-tight text-ink-primary">
           {correct}
           <span className="text-xl text-ink-muted">/{total}</span>
         </div>
         <p className="mt-1 text-sm text-ink-secondary">
           {pct === 100
-            ? "Perfect score."
-            : pct >= 70
-              ? "Solid — a review of the missed ones below is worth a look."
-              : "Worth another pass — review the explanations below and try again."}
+            ? "Perfect score — next level unlocked."
+            : passed
+              ? "Nice work — next level unlocked."
+              : "Review the explanations below, then retry to unlock the next level."}
         </p>
       </div>
 
       <div className="space-y-2">
-        {module.questions.map((q, i) => {
+        {questions.map((q, i) => {
           const got = answers[i] === q.correctIndex;
           return (
             <div key={q.id} className="flex items-start gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
@@ -230,17 +455,26 @@ function ResultsScreen({
       </div>
 
       <div className="mt-4 flex gap-2">
+        {passed ? (
+          <button
+            onClick={onContinue}
+            className="rounded-lg bg-gradient-to-r from-accent-cyan to-accent-violet px-4 py-2 text-xs font-semibold text-plane hover:opacity-90"
+          >
+            Continue → Level {level + 1}
+          </button>
+        ) : (
+          <button
+            onClick={onRetry}
+            className="rounded-lg bg-gradient-to-r from-accent-cyan to-accent-violet px-4 py-2 text-xs font-semibold text-plane hover:opacity-90"
+          >
+            Retry level
+          </button>
+        )}
         <button
-          onClick={onRetry}
-          className="rounded-lg bg-gradient-to-r from-accent-cyan to-accent-violet px-4 py-2 text-xs font-semibold text-plane hover:opacity-90"
-        >
-          Try again
-        </button>
-        <button
-          onClick={onExit}
+          onClick={onContinue}
           className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-ink-secondary hover:text-ink-primary"
         >
-          Back to modules
+          Back to path
         </button>
       </div>
     </Card>
