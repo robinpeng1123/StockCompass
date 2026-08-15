@@ -19,15 +19,6 @@ export type Stock = {
   curated?: boolean; // false when the ticker has no hand-curated tags/blurb (full-universe fallback)
 };
 
-export type Pattern = {
-  name: string;
-  confidencePct: number;
-  detectedOn: string;
-  explanation: string;
-  historicalStat: string;
-  direction: "bullish" | "bearish" | "neutral";
-};
-
 export type Scenario = {
   label: "Bullish" | "Neutral" | "Bearish";
   trigger: string;

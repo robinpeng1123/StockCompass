@@ -33,11 +33,13 @@ export function DayTradingSim({
   const color = up ? "#0ca30c" : "#d03b3b";
 
   const width = 640;
-  const height = 180;
-  const padY = 14;
-  const padX = 8;
-  const usableH = height - padY * 2;
-  const usableW = width - padX * 2;
+  const height = 200;
+  const axisW = 56;
+  const padTop = 14;
+  const padBottom = 22;
+  const padRight = 8;
+  const usableH = height - padTop - padBottom;
+  const usableW = width - axisW - padRight;
 
   const min = Math.min(...prices);
   const max = Math.max(...prices);
@@ -45,18 +47,19 @@ export function DayTradingSim({
   const n = prices.length - 1;
 
   const points = prices.map(
-    (p, i) => [padX + (n > 0 ? (i / n) * usableW : usableW / 2), padY + usableH - ((p - min) / span) * usableH] as const
+    (p, i) => [axisW + (n > 0 ? (i / n) * usableW : usableW / 2), padTop + usableH - ((p - min) / span) * usableH] as const
   );
   const linePath = points.map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)},${y.toFixed(2)}`).join(" ");
-  const areaPath = points.length
-    ? `${linePath} L${points[points.length - 1][0]},${height - padY} L${points[0][0]},${height - padY} Z`
-    : "";
+  const baseline = height - padBottom;
+  const areaPath = points.length ? `${linePath} L${points[points.length - 1][0]},${baseline} L${points[0][0]},${baseline} Z` : "";
+
+  const yTicks = [0, 0.33, 0.66, 1].map((f) => ({ y: padTop + usableH * (1 - f), value: min + span * f }));
 
   function handleMove(e: React.PointerEvent<SVGSVGElement>) {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect || n <= 0) return;
     const relX = ((e.clientX - rect.left) / rect.width) * width;
-    const idx = Math.round(((relX - padX) / usableW) * n);
+    const idx = Math.round(((relX - axisW) / usableW) * n);
     setHoverIdx(Math.max(0, Math.min(n, idx)));
   }
 
@@ -93,6 +96,17 @@ export function DayTradingSim({
               <stop offset="100%" stopColor={color} stopOpacity={0} />
             </linearGradient>
           </defs>
+
+          {/* Y-axis: gridlines + price labels */}
+          {yTicks.map((t, i) => (
+            <g key={i}>
+              <line x1={axisW} x2={width} y1={t.y} y2={t.y} stroke="#2c2c2a" strokeWidth={1} />
+              <text x={axisW - 8} y={t.y + 3} textAnchor="end" fontSize="10" fill="#5b6580">
+                {formatPrice(t.value)}
+              </text>
+            </g>
+          ))}
+
           <path d={areaPath} fill={`url(#daysim-fill-${id})`} stroke="none" />
           <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
           {points.map(([x, y], i) => (
@@ -100,10 +114,24 @@ export function DayTradingSim({
           ))}
           {hover && (
             <>
-              <line x1={hover[0]} x2={hover[0]} y1={padY} y2={height - padY} stroke="rgba(255,255,255,0.25)" strokeWidth={1} />
+              <line x1={hover[0]} x2={hover[0]} y1={padTop} y2={baseline} stroke="rgba(255,255,255,0.25)" strokeWidth={1} />
               <circle cx={hover[0]} cy={hover[1]} r={4} fill={color} stroke="#10141f" strokeWidth={2} />
             </>
           )}
+
+          {/* X-axis: time labels */}
+          {points.map(([x], i) => (
+            <text
+              key={i}
+              x={x}
+              y={height - 4}
+              textAnchor={i === 0 ? "start" : i === n ? "end" : "middle"}
+              fontSize="10"
+              fill="#5b6580"
+            >
+              {checkpoints[i].isNow ? "Now" : checkpoints[i].label}
+            </text>
+          ))}
         </svg>
 
         {hover && hoverIdx !== null && (
