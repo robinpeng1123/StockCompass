@@ -4,7 +4,7 @@ import { Scenario } from "@/lib/types";
 import { Card, CardHeader } from "./ui/Card";
 import { Badge } from "./ui/Badge";
 import { signed } from "@/lib/utils";
-import { ScenarioMiniChart } from "./ui/ScenarioMiniChart";
+import { ScenarioComboChart } from "./ui/ScenarioComboChart";
 
 const SCENARIO_COLOR: Record<Scenario["label"], string> = {
   Bullish: "#0ca30c",
@@ -52,6 +52,10 @@ export function ScenarioSimulator({
         ))}
       </div>
 
+      <div className="mt-5">
+        <ScenarioComboChart ticker={ticker} scenarios={scenarios} price={price} volatilityScore={volatility} />
+      </div>
+
       <div className="mt-5 grid gap-4 sm:grid-cols-3">
         {scenarios.map((s) => (
           <div key={s.label} className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-3.5">
@@ -62,9 +66,7 @@ export function ScenarioSimulator({
               </Badge>
             </div>
 
-            <ScenarioMiniChart ticker={ticker} scenario={s} price={price} volatilityScore={volatility} color={SCENARIO_COLOR[s.label]} />
-
-            <div className="mt-2 text-xs font-semibold tabular-nums text-ink-primary">
+            <div className="text-xs font-semibold tabular-nums text-ink-primary">
               {signed(s.rangeLowPct, 0)}% to {signed(s.rangeHighPct, 0)}%
             </div>
             <p className="mt-1 text-[11px] leading-relaxed text-ink-secondary">{s.trigger}</p>
