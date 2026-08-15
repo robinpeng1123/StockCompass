@@ -17,6 +17,8 @@ const SCENARIO_COLOR: Record<Scenario["label"], string> = {
  * scenario's own probability-weighted target ~30 days out. Same
  * generateProjectionPath seeding as before (ticker + scenario label + date),
  * so each line's shape is unchanged from the old per-scenario mini charts.
+ * Date x-axis and price y-axis, matching the convention used by the main
+ * PriceChart.
  */
 export function ScenarioComboChart({
   ticker,
@@ -34,11 +36,13 @@ export function ScenarioComboChart({
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
   const width = 640;
-  const height = 220;
-  const padY = 16;
-  const padX = 10;
-  const usableH = height - padY * 2;
-  const usableW = width - padX * 2;
+  const height = 240;
+  const axisW = 56;
+  const padTop = 16;
+  const padBottom = 22;
+  const padRight = 14;
+  const usableH = height - padTop - padBottom;
+  const usableW = width - axisW - padRight;
 
   const now = new Date();
   const dateKey = now.toISOString().slice(0, 10);
@@ -69,8 +73,8 @@ export function ScenarioComboChart({
   const max = Math.max(...allValues);
   const span = max - min || 1;
 
-  const xAt = (i: number) => padX + (i / n) * usableW;
-  const yAt = (v: number) => padY + usableH - ((v - min) / span) * usableH;
+  const xAt = (i: number) => axisW + (i / n) * usableW;
+  const yAt = (v: number) => padTop + usableH - ((v - min) / span) * usableH;
 
   const linesWithPoints = paths.map(({ scenario, path }) => {
     const points = path.map((v, i) => [xAt(i), yAt(v)] as const);
@@ -78,11 +82,17 @@ export function ScenarioComboChart({
     return { scenario, path, points, linePath };
   });
 
+  const yTicks = [0, 0.33, 0.66, 1].map((f) => ({ y: padTop + usableH * (1 - f), value: min + span * f }));
+  const xTicks = Array.from({ length: n + 1 }, (_, i) => ({
+    x: xAt(i),
+    label: i === 0 ? "Today" : fmtDate(new Date(now.getTime() + (i / n) * horizonDays * 86_400_000)),
+  }));
+
   function handleMove(e: React.PointerEvent<SVGSVGElement>) {
     const rect = svgRef.current?.getBoundingClientRect();
     if (!rect) return;
     const relX = ((e.clientX - rect.left) / rect.width) * width;
-    const idx = Math.round(((relX - padX) / usableW) * n);
+    const idx = Math.round(((relX - axisW) / usableW) * n);
     setHoverIdx(Math.max(0, Math.min(n, idx)));
   }
 
@@ -125,6 +135,16 @@ export function ScenarioComboChart({
           ))}
         </defs>
 
+        {/* Y-axis: gridlines + price labels */}
+        {yTicks.map((t, i) => (
+          <g key={i}>
+            <line x1={axisW} x2={width} y1={t.y} y2={t.y} stroke="#2c2c2a" strokeWidth={1} />
+            <text x={axisW - 8} y={t.y + 3} textAnchor="end" fontSize="10" fill="#5b6580">
+              {formatPrice(t.value)}
+            </text>
+          </g>
+        ))}
+
         {linesWithPoints.map(({ scenario, linePath }) => (
           <path
             key={scenario.label}
@@ -154,7 +174,7 @@ export function ScenarioComboChart({
 
         {hoverX !== null && (
           <>
-            <line x1={hoverX} x2={hoverX} y1={padY} y2={height - padY} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
+            <line x1={hoverX} x2={hoverX} y1={padTop} y2={height - padBottom} stroke="rgba(255,255,255,0.2)" strokeWidth={1} />
             {linesWithPoints.map(({ scenario, points }) => (
               <circle
                 key={scenario.label}
@@ -183,12 +203,19 @@ export function ScenarioComboChart({
             {formatPrice(paths.find((p) => p.scenario.label === scenario.label)!.path[n])}
           </text>
         ))}
+
+        {/* X-axis: date labels */}
+        {xTicks.map((t, i) => (
+          <text key={i} x={t.x} y={height - 4} textAnchor={i === 0 ? "start" : i === xTicks.length - 1 ? "end" : "middle"} fontSize="10" fill="#5b6580">
+            {t.label}
+          </text>
+        ))}
       </svg>
 
       {hoverX !== null && hoverIdx !== null && (
         <div
           className={`pointer-events-none absolute top-0 rounded-lg border border-white/10 bg-surface-raised px-2.5 py-1.5 text-xs shadow-lg ${
-            hoverPct < 15 ? "translate-x-0" : hoverPct > 78 ? "-translate-x-full" : "-translate-x-1/2"
+            hoverPct < 20 ? "translate-x-0" : hoverPct > 78 ? "-translate-x-full" : "-translate-x-1/2"
           }`}
           style={{ left: `${hoverPct}%` }}
         >
@@ -202,11 +229,6 @@ export function ScenarioComboChart({
           ))}
         </div>
       )}
-
-      <div className="mt-1 flex justify-between text-[10px] text-ink-muted">
-        <span>Today · {formatPrice(price)}</span>
-        <span>{fmtDate(endDate)}</span>
-      </div>
     </div>
   );
 }
