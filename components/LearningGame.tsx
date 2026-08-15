@@ -88,6 +88,7 @@ function saveProgress(p: Progress) {
 
 type Screen =
   | { view: "animal" }
+  | { view: "greeting"; animalKey: string }
   | { view: "topics" }
   | { view: "placementOffer"; topic: TopicKey }
   | { view: "placementQuiz"; topic: TopicKey; qIndex: number; answers: number[] }
@@ -114,7 +115,7 @@ export function LearningGame() {
     const next = { ...progress, animalKey: key };
     setProgress(next);
     saveProgress(next);
-    setScreen({ view: "topics" });
+    setScreen({ view: "greeting", animalKey: key });
   }
 
   function selectTopic(topic: TopicKey) {
@@ -186,11 +187,15 @@ export function LearningGame() {
   if (!ready) return null;
 
   const animal = ANIMALS.find((a) => a.key === progress.animalKey) ?? null;
+  const big = fullscreen;
 
   let content: ReactNode;
 
   if (screen.view === "animal") {
-    content = <AnimalSelect onSelect={chooseAnimal} />;
+    content = <AnimalSelect onSelect={chooseAnimal} big={big} />;
+  } else if (screen.view === "greeting") {
+    const greetingAnimal = ANIMALS.find((a) => a.key === screen.animalKey)!;
+    content = <GreetingScreen animal={greetingAnimal} onContinue={() => setScreen({ view: "topics" })} big={big} />;
   } else if (screen.view === "topics") {
     content = (
       <TopicSelect
@@ -198,6 +203,7 @@ export function LearningGame() {
         unlocked={progress.unlocked}
         onSelectTopic={selectTopic}
         onChangeAnimal={() => setScreen({ view: "animal" })}
+        big={big}
       />
     );
   } else if (screen.view === "placementOffer") {
@@ -207,6 +213,7 @@ export function LearningGame() {
         topic={topic}
         onTakeTest={() => setScreen({ view: "placementQuiz", topic: screen.topic, qIndex: 0, answers: [] })}
         onSkip={() => skipPlacement(screen.topic)}
+        big={big}
       />
     );
   } else if (screen.view === "placementQuiz") {
@@ -220,6 +227,7 @@ export function LearningGame() {
         qIndex={screen.qIndex}
         onAnswer={handlePlacementAnswer}
         onExit={() => setScreen({ view: "topics" })}
+        big={big}
       />
     );
   } else if (screen.view === "placementResult") {
@@ -235,6 +243,7 @@ export function LearningGame() {
         total={questions.length}
         level={level}
         onContinue={() => setScreen({ view: "path", topic: screen.topic })}
+        big={big}
       />
     );
   } else if (screen.view === "path") {
@@ -247,6 +256,7 @@ export function LearningGame() {
         onSelectLevel={(level) => startLevel(topic.key, level)}
         onBack={() => setScreen({ view: "topics" })}
         onRetakePlacement={() => setScreen({ view: "placementOffer", topic: topic.key })}
+        big={big}
       />
     );
   } else if (screen.view === "lesson") {
@@ -260,6 +270,7 @@ export function LearningGame() {
         animal={animal}
         onStart={() => setScreen({ view: "quiz", topic: screen.topic, level: screen.level, qIndex: 0, answers: [] })}
         onBack={() => setScreen({ view: "path", topic: screen.topic })}
+        big={big}
       />
     );
   } else if (screen.view === "quiz") {
@@ -273,6 +284,7 @@ export function LearningGame() {
         qIndex={screen.qIndex}
         onAnswer={handleAnswer}
         onExit={() => setScreen({ view: "path", topic: screen.topic })}
+        big={big}
       />
     );
   } else {
@@ -287,6 +299,7 @@ export function LearningGame() {
         animal={animal}
         onContinue={() => setScreen({ view: "path", topic: screen.topic })}
         onRetry={() => setScreen({ view: "quiz", topic: screen.topic, level: screen.level, qIndex: 0, answers: [] })}
+        big={big}
       />
     );
   }
@@ -324,17 +337,25 @@ function GameChrome({
 
   return (
     <div className={cx(fullscreen && "!mt-0 fixed inset-0 z-50 overflow-y-auto bg-plane")}>
-      <div className={cx("relative isolate overflow-hidden rounded-2xl", fullscreen && "min-h-full px-4 py-6 sm:px-8 sm:py-10")}>
+      <div className={cx("relative isolate overflow-hidden rounded-2xl", fullscreen && "min-h-full px-4 py-6 sm:px-10 sm:py-10")}>
         <ColorfulBackground />
-        <div className={cx("relative", fullscreen && "mx-auto max-w-2xl")}>
+        <div className={cx("relative", fullscreen && "mx-auto max-w-4xl")}>
           <div className="mb-3 flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-ink-primary">
-              <span className="text-lg">{COMPASS_EMOJI}</span>
+            <div
+              className={cx(
+                "flex items-center gap-1.5 font-semibold tracking-tight text-ink-primary",
+                fullscreen ? "text-base sm:text-lg" : "text-sm"
+              )}
+            >
+              <span className={fullscreen ? "text-xl" : "text-lg"}>{COMPASS_EMOJI}</span>
               Compass Learning
             </div>
             <button
               onClick={onToggleFullscreen}
-              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-medium text-ink-secondary hover:text-ink-primary"
+              className={cx(
+                "flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] font-medium text-ink-secondary hover:text-ink-primary",
+                fullscreen ? "px-3 py-2 text-xs" : "px-2.5 py-1.5 text-[11px]"
+              )}
             >
               {fullscreen ? <IconCollapse /> : <IconExpand />}
               {fullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -386,9 +407,53 @@ function IconCollapse() {
   );
 }
 
-function AnimalSelect({ onSelect }: { onSelect: (key: string) => void }) {
+// ---------------------------------------------------------------------------
+// Compass + companion "stage" — a shared duo-style character row used
+// wherever the rooster and the player's chosen animal share a moment
+// (greeting, teaching, celebrating), rather than a single static emoji.
+// ---------------------------------------------------------------------------
+
+type Interaction = "talk" | "greet" | "cheer";
+
+function CompanionStage({ animal, interaction, big }: { animal: Animal | null; interaction: Interaction; big?: boolean }) {
+  const icon = interaction === "greet" ? "🤝" : interaction === "cheer" ? "🤗" : null;
+  const avatarBox = big
+    ? "h-20 w-20 text-5xl sm:h-24 sm:w-24 sm:text-6xl"
+    : "h-14 w-14 text-3xl sm:h-16 sm:w-16 sm:text-4xl";
   return (
-    <div className="flex flex-col items-center gap-6 py-8 text-center">
+    <div className="flex items-center justify-center gap-3 sm:gap-5">
+      <div className="flex flex-col items-center gap-1">
+        <div
+          className={cx(
+            "flex items-center justify-center rounded-full border-2 border-white/10 bg-white/[0.04] shadow-lg",
+            avatarBox,
+            interaction === "talk" && "animate-bounce-slow"
+          )}
+        >
+          {COMPASS_EMOJI}
+        </div>
+        <span className="text-[10px] font-semibold text-ink-muted">{COMPASS_NAME}</span>
+      </div>
+      {icon && (
+        <span key={interaction} className={cx("animate-pop-in", big ? "text-3xl sm:text-4xl" : "text-xl sm:text-2xl")}>
+          {icon}
+        </span>
+      )}
+      {animal && (
+        <div className="flex flex-col items-center gap-1">
+          <div className={cx("flex items-center justify-center rounded-full border-2 border-white/10 bg-white/[0.04] shadow-lg", avatarBox)}>
+            {animal.emoji}
+          </div>
+          <span className="text-[10px] font-semibold text-ink-muted">{animal.label}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnimalSelect({ onSelect, big }: { onSelect: (key: string) => void; big?: boolean }) {
+  return (
+    <div className={cx("flex flex-col items-center text-center", big ? "gap-8 py-12" : "gap-6 py-8")}>
       <div>
         <div className="flex items-center justify-center gap-2 text-sm text-ink-secondary">
           <span className="text-2xl">{COMPASS_EMOJI}</span>
@@ -397,22 +462,49 @@ function AnimalSelect({ onSelect }: { onSelect: (key: string) => void }) {
             a time as you go.
           </span>
         </div>
-        <h2 className="mt-3 text-xl font-semibold text-ink-primary">Pick your companion</h2>
+        <h2 className={cx("mt-3 font-semibold text-ink-primary", big ? "text-3xl" : "text-xl")}>Pick your companion</h2>
         <p className="mt-1 text-sm text-ink-secondary">They'll stick with you through every level.</p>
       </div>
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+      <div className={cx("grid grid-cols-2 sm:grid-cols-4", big ? "gap-6" : "gap-4")}>
         {ANIMALS.map((a) => (
           <button
             key={a.key}
             onClick={() => onSelect(a.key)}
-            className="glass-panel flex flex-col items-center gap-2 p-6 transition-transform hover:scale-105 hover:border-accent-cyan/40"
+            className={cx(
+              "glass-panel flex flex-col items-center transition-transform hover:scale-105 hover:border-accent-cyan/40",
+              big ? "gap-3 p-10" : "gap-2 p-6"
+            )}
           >
-            <span className="text-5xl">{a.emoji}</span>
-            <span className="text-sm font-medium text-ink-primary">{a.label}</span>
+            <span className={big ? "text-7xl" : "text-5xl"}>{a.emoji}</span>
+            <span className={cx("font-medium text-ink-primary", big ? "text-base" : "text-sm")}>{a.label}</span>
           </button>
         ))}
       </div>
     </div>
+  );
+}
+
+function GreetingScreen({ animal, onContinue, big }: { animal: Animal; onContinue: () => void; big?: boolean }) {
+  return (
+    <Card className={big ? "sm:p-10" : undefined}>
+      <CardHeader eyebrow="Say hello" title="Meet your teacher" />
+      <div className={cx("flex flex-col items-center text-center", big ? "gap-6 py-6" : "gap-4 py-4")}>
+        <CompanionStage animal={animal} interaction="greet" big={big} />
+        <p className={cx("max-w-sm leading-relaxed text-ink-secondary", big ? "text-base" : "text-sm")}>
+          <span className="font-semibold text-ink-primary">{COMPASS_NAME}</span>: "Nice to meet you, {animal.label}!
+          Let's get started — I'll teach you a bit at every level."
+        </p>
+      </div>
+      <button
+        onClick={onContinue}
+        className={cx(
+          "w-full rounded-lg bg-gradient-to-r from-accent-cyan to-accent-violet font-semibold text-plane hover:opacity-90",
+          big ? "py-3.5 text-base" : "py-2.5 text-sm"
+        )}
+      >
+        Let's go →
+      </button>
+    </Card>
   );
 }
 
@@ -421,11 +513,13 @@ function TopicSelect({
   unlocked,
   onSelectTopic,
   onChangeAnimal,
+  big,
 }: {
   animal: Animal | null;
   unlocked: Record<TopicKey, number>;
   onSelectTopic: (topic: TopicKey) => void;
   onChangeAnimal: () => void;
+  big?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -441,7 +535,7 @@ function TopicSelect({
         </div>
       )}
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className={cx("grid sm:grid-cols-2", big ? "gap-6" : "gap-4")}>
         {TOPICS.map((t) => {
           const level = unlocked[t.key];
           const complete = level > t.totalLevels;
@@ -451,16 +545,19 @@ function TopicSelect({
             <button
               key={t.key}
               onClick={() => onSelectTopic(t.key)}
-              className="glass-panel flex flex-col items-start gap-2 p-5 text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]"
+              className={cx(
+                "glass-panel flex flex-col items-start text-left transition-colors hover:border-white/20 hover:bg-white/[0.04]",
+                big ? "gap-3 p-8" : "gap-2 p-5"
+              )}
             >
               <div className="flex w-full items-center justify-between">
-                <span className="text-2xl">{t.emoji}</span>
-                <Badge status={complete ? "good" : "neutral"} className="px-2 py-0.5 text-[10px]">
+                <span className={big ? "text-4xl" : "text-2xl"}>{t.emoji}</span>
+                <Badge status={complete ? "good" : "neutral"} className={cx(big ? "px-2.5 py-1 text-xs" : "px-2 py-0.5 text-[10px]")}>
                   {complete ? "Complete" : `Level ${level}/${t.totalLevels}`}
                 </Badge>
               </div>
-              <div className="text-base font-semibold text-ink-primary">{t.title}</div>
-              <p className="text-xs leading-relaxed text-ink-secondary">{t.description}</p>
+              <div className={cx("font-semibold text-ink-primary", big ? "text-xl" : "text-base")}>{t.title}</div>
+              <p className={cx("leading-relaxed text-ink-secondary", big ? "text-sm" : "text-xs")}>{t.description}</p>
               <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.07]">
                 <div className={cx("h-full rounded-full bg-gradient-to-r", theme.gradient)} style={{ width: `${pct}%` }} />
               </div>
@@ -476,18 +573,20 @@ function PlacementOffer({
   topic,
   onTakeTest,
   onSkip,
+  big,
 }: {
   topic: Topic;
   onTakeTest: () => void;
   onSkip: () => void;
+  big?: boolean;
 }) {
   const theme = TOPIC_THEME[topic.key];
   return (
-    <Card>
+    <Card className={big ? "sm:p-10" : undefined}>
       <CardHeader eyebrow={topic.title} title="Find your starting level" />
-      <div className="flex flex-col items-center gap-3 py-4 text-center">
-        <span className="text-4xl">{topic.emoji}</span>
-        <p className="max-w-sm text-sm leading-relaxed text-ink-secondary">
+      <div className={cx("flex flex-col items-center text-center", big ? "gap-4 py-6" : "gap-3 py-4")}>
+        <span className={big ? "text-6xl" : "text-4xl"}>{topic.emoji}</span>
+        <p className={cx("max-w-sm leading-relaxed text-ink-secondary", big ? "text-base" : "text-sm")}>
           Take a quick 20-question placement test and we'll drop you in at a level that matches what you already
           know — or just start from the very beginning if you'd rather build up from scratch.
         </p>
@@ -496,7 +595,8 @@ function PlacementOffer({
         <button
           onClick={onTakeTest}
           className={cx(
-            "flex-1 rounded-lg bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-plane hover:opacity-90",
+            "flex-1 rounded-lg bg-gradient-to-r font-semibold text-plane hover:opacity-90",
+            big ? "py-3.5 text-base" : "py-2.5 text-sm",
             theme.gradient
           )}
         >
@@ -504,7 +604,10 @@ function PlacementOffer({
         </button>
         <button
           onClick={onSkip}
-          className="flex-1 rounded-lg border border-white/10 px-4 py-2.5 text-sm font-medium text-ink-secondary hover:text-ink-primary"
+          className={cx(
+            "flex-1 rounded-lg border border-white/10 font-medium text-ink-secondary hover:text-ink-primary",
+            big ? "py-3.5 text-base" : "py-2.5 text-sm"
+          )}
         >
           Skip — start at Level 1
         </button>
@@ -520,6 +623,7 @@ function PlacementResult({
   total,
   level,
   onContinue,
+  big,
 }: {
   topic: Topic;
   animal: Animal | null;
@@ -527,18 +631,19 @@ function PlacementResult({
   total: number;
   level: number;
   onContinue: () => void;
+  big?: boolean;
 }) {
   const theme = TOPIC_THEME[topic.key];
   return (
-    <Card>
+    <Card className={big ? "sm:p-10" : undefined}>
       <CardHeader eyebrow={topic.title} title="Placement test complete" />
-      <div className="flex flex-col items-center gap-2 py-4 text-center">
-        <span className="text-5xl">{animal ? animal.emoji : topic.emoji}</span>
-        <div className="mt-2 text-4xl font-semibold tracking-tight text-ink-primary">
+      <div className={cx("flex flex-col items-center text-center", big ? "gap-3 py-6" : "gap-2 py-4")}>
+        <span className={big ? "text-6xl" : "text-5xl"}>{animal ? animal.emoji : topic.emoji}</span>
+        <div className={cx("font-semibold tracking-tight text-ink-primary", big ? "mt-2 text-5xl" : "mt-2 text-4xl")}>
           {correct}
           <span className="text-xl text-ink-muted">/{total}</span>
         </div>
-        <p className="mt-1 text-sm text-ink-secondary">
+        <p className={cx("text-ink-secondary", big ? "mt-1 text-base" : "mt-1 text-sm")}>
           You're starting at <span className="font-semibold text-ink-primary">Level {level}</span> of{" "}
           {topic.totalLevels}.
         </p>
@@ -546,7 +651,8 @@ function PlacementResult({
       <button
         onClick={onContinue}
         className={cx(
-          "w-full rounded-lg bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-plane hover:opacity-90",
+          "w-full rounded-lg bg-gradient-to-r font-semibold text-plane hover:opacity-90",
+          big ? "py-3.5 text-base" : "py-2.5 text-sm",
           theme.gradient
         )}
       >
@@ -563,6 +669,7 @@ function LevelPath({
   onSelectLevel,
   onBack,
   onRetakePlacement,
+  big,
 }: {
   topic: Topic;
   animal: Animal | null;
@@ -570,11 +677,15 @@ function LevelPath({
   onSelectLevel: (level: number) => void;
   onBack: () => void;
   onRetakePlacement: () => void;
+  big?: boolean;
 }) {
   const theme = TOPIC_THEME[topic.key];
   const levels = Array.from({ length: topic.totalLevels }, (_, i) => i + 1);
   const sections: number[][] = [];
   for (let i = 0; i < levels.length; i += 10) sections.push(levels.slice(i, i + 10));
+
+  const nodeAmplitude = big ? 66 : 46;
+  const plantDistance = big ? 108 : 78;
 
   return (
     <div className="space-y-4">
@@ -595,7 +706,7 @@ function LevelPath({
         </button>
       </div>
 
-      <div className="glass-panel max-h-[560px] overflow-y-auto p-6">
+      <div className={cx("glass-panel overflow-y-auto p-6", big ? "max-h-[70vh]" : "max-h-[560px]")}>
         {sections.map((section, sIdx) => {
           const accent = SECTION_ACCENTS[sIdx % SECTION_ACCENTS.length];
           return (
@@ -605,18 +716,18 @@ function LevelPath({
                   Levels {section[0]}–{section[section.length - 1]}
                 </span>
               </div>
-              <div className="flex flex-col items-center gap-3">
+              <div className={cx("flex flex-col items-center", big ? "gap-4" : "gap-3")}>
                 {section.map((level) => {
                   const state = level < unlockedLevel ? "done" : level === unlockedLevel ? "current" : "locked";
-                  const offset = Math.round(Math.sin(level * 0.9) * 46);
+                  const offset = Math.round(Math.sin(level * 0.9) * nodeAmplitude);
                   const plantSide = offset >= 0 ? -1 : 1;
                   const plant = theme.plants[level % theme.plants.length];
                   return (
-                    <div key={level} className="relative flex h-16 w-full items-center justify-center">
+                    <div key={level} className={cx("relative flex w-full items-center justify-center", big ? "h-20" : "h-16")}>
                       <span
                         aria-hidden
-                        className="pointer-events-none absolute select-none text-xl opacity-60 sm:text-2xl"
-                        style={{ transform: `translateX(${offset + plantSide * 78}px)` }}
+                        className={cx("pointer-events-none absolute select-none opacity-60", big ? "text-3xl" : "text-xl sm:text-2xl")}
+                        style={{ transform: `translateX(${offset + plantSide * plantDistance}px)` }}
                       >
                         {plant}
                       </span>
@@ -625,7 +736,8 @@ function LevelPath({
                         onClick={() => onSelectLevel(level)}
                         style={{ transform: `translateX(${offset}px)` }}
                         className={cx(
-                          "relative flex h-14 w-14 shrink-0 items-center justify-center rounded-full border text-sm font-semibold transition-transform",
+                          "relative flex shrink-0 items-center justify-center rounded-full border font-semibold transition-transform",
+                          big ? "h-20 w-20 text-lg" : "h-14 w-14 text-sm",
                           state === "done" && "border-status-good/40 bg-status-good/15 text-status-good hover:scale-105",
                           state === "current" && cx("scale-110 border-white/20 bg-gradient-to-br text-plane", theme.gradient, theme.glow),
                           state === "locked" && "border-white/10 bg-white/[0.02] text-ink-muted"
@@ -652,6 +764,7 @@ function LessonScreen({
   animal,
   onStart,
   onBack,
+  big,
 }: {
   topic: Topic;
   level: number;
@@ -659,6 +772,7 @@ function LessonScreen({
   animal: Animal | null;
   onStart: () => void;
   onBack: () => void;
+  big?: boolean;
 }) {
   const theme = TOPIC_THEME[topic.key];
   const [displayed, setDisplayed] = useState("");
@@ -675,7 +789,7 @@ function LessonScreen({
   }, [lesson.body]);
 
   return (
-    <Card>
+    <Card className={big ? "sm:p-10" : undefined}>
       <CardHeader
         eyebrow={`${topic.title} · Level ${level}`}
         title={lesson.title}
@@ -685,25 +799,21 @@ function LessonScreen({
           </button>
         }
       />
-      <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <span className="text-3xl">{COMPASS_EMOJI}</span>
-        <div>
-          <p className="text-xs font-semibold text-ink-muted">{COMPASS_NAME}</p>
-          <p className="mt-1 min-h-[3.5rem] text-sm leading-relaxed text-ink-secondary">
+      <div className={cx("flex flex-col items-center rounded-xl border border-white/10 bg-white/[0.03]", big ? "gap-4 p-6" : "gap-3 p-4")}>
+        <CompanionStage animal={animal} interaction="talk" big={big} />
+        <div className="w-full rounded-xl bg-white/[0.02] p-3 sm:p-4">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-muted">{COMPASS_NAME} says</p>
+          <p className={cx("mt-1 min-h-[3.5rem] leading-relaxed text-ink-secondary", big ? "text-base" : "text-sm")}>
             {displayed}
             {displayed.length < lesson.body.length && <span className="animate-pulse">▍</span>}
           </p>
         </div>
       </div>
-      {animal && (
-        <p className="mt-2 text-center text-[11px] text-ink-muted">
-          {animal.emoji} {animal.label} is cheering you on
-        </p>
-      )}
       <button
         onClick={onStart}
         className={cx(
-          "mt-4 w-full rounded-lg bg-gradient-to-r px-4 py-2.5 text-sm font-semibold text-plane hover:opacity-90",
+          "mt-4 w-full rounded-lg bg-gradient-to-r font-semibold text-plane hover:opacity-90",
+          big ? "py-3.5 text-base" : "py-2.5 text-sm",
           theme.gradient
         )}
       >
@@ -720,6 +830,7 @@ function QuizScreen({
   qIndex,
   onAnswer,
   onExit,
+  big,
 }: {
   eyebrow: string;
   theme: TopicTheme;
@@ -727,6 +838,7 @@ function QuizScreen({
   qIndex: number;
   onAnswer: (selected: number) => void;
   onExit: () => void;
+  big?: boolean;
 }) {
   const [selected, setSelected] = useState<number | null>(null);
   const question = questions[qIndex];
@@ -744,7 +856,7 @@ function QuizScreen({
   }
 
   return (
-    <Card>
+    <Card className={big ? "sm:p-10" : undefined}>
       <CardHeader
         eyebrow={eyebrow}
         title={`Question ${qIndex + 1} of ${total}`}
@@ -768,9 +880,9 @@ function QuizScreen({
         </div>
       )}
 
-      <p className="mb-4 text-sm font-medium leading-relaxed text-ink-primary">{question.prompt}</p>
+      <p className={cx("mb-4 font-medium leading-relaxed text-ink-primary", big ? "text-base" : "text-sm")}>{question.prompt}</p>
 
-      <div className="space-y-2">
+      <div className={cx(big ? "space-y-3" : "space-y-2")}>
         {question.options.map((opt, i) => {
           const isCorrect = i === question.correctIndex;
           const isSelected = i === selected;
@@ -781,7 +893,8 @@ function QuizScreen({
               onClick={() => choose(i)}
               disabled={selected !== null}
               className={cx(
-                "w-full rounded-xl border px-4 py-3 text-left text-sm transition-colors",
+                "w-full rounded-xl border text-left transition-colors",
+                big ? "px-5 py-4 text-base" : "px-4 py-3 text-sm",
                 !showResult && "border-white/10 bg-white/[0.02] text-ink-secondary hover:border-accent-cyan/40 hover:text-ink-primary",
                 showResult && isCorrect && "border-status-good/40 bg-status-good/10 text-ink-primary",
                 showResult && isSelected && !isCorrect && "border-status-critical/40 bg-status-critical/10 text-ink-primary",
@@ -799,11 +912,12 @@ function QuizScreen({
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
             {selected === question.correctIndex ? "Correct" : "Not quite"}
           </p>
-          <p className="mt-1.5 text-sm leading-relaxed text-ink-secondary">{question.explanation}</p>
+          <p className={cx("mt-1.5 leading-relaxed text-ink-secondary", big ? "text-base" : "text-sm")}>{question.explanation}</p>
           <button
             onClick={next}
             className={cx(
-              "mt-3 rounded-lg bg-gradient-to-r px-4 py-2 text-xs font-semibold text-plane hover:opacity-90",
+              "mt-3 rounded-lg bg-gradient-to-r font-semibold text-plane hover:opacity-90",
+              big ? "px-5 py-2.5 text-sm" : "px-4 py-2 text-xs",
               theme.gradient
             )}
           >
@@ -823,6 +937,7 @@ function LevelComplete({
   animal,
   onContinue,
   onRetry,
+  big,
 }: {
   topic: Topic;
   level: number;
@@ -831,6 +946,7 @@ function LevelComplete({
   animal: Animal | null;
   onContinue: () => void;
   onRetry: () => void;
+  big?: boolean;
 }) {
   const theme = TOPIC_THEME[topic.key];
   const total = questions.length;
@@ -839,15 +955,19 @@ function LevelComplete({
   const passed = correct >= Math.ceil(total / 2);
 
   return (
-    <Card>
+    <Card className={big ? "sm:p-10" : undefined}>
       <CardHeader eyebrow={`${topic.title} · Level ${level}`} title={passed ? "Level complete!" : "Almost there"} />
-      <div className="flex flex-col items-center py-4 text-center">
-        <span className="text-5xl">{animal ? animal.emoji : passed ? "🎉" : "💪"}</span>
-        <div className="mt-2 text-4xl font-semibold tracking-tight text-ink-primary">
+      <div className={cx("flex flex-col items-center text-center", big ? "gap-3 py-6" : "gap-2 py-4")}>
+        {passed && animal ? (
+          <CompanionStage animal={animal} interaction="cheer" big={big} />
+        ) : (
+          <span className={big ? "text-6xl" : "text-5xl"}>{animal ? animal.emoji : passed ? "🎉" : "💪"}</span>
+        )}
+        <div className={cx("font-semibold tracking-tight text-ink-primary", big ? "mt-2 text-5xl" : "mt-2 text-4xl")}>
           {correct}
           <span className="text-xl text-ink-muted">/{total}</span>
         </div>
-        <p className="mt-1 text-sm text-ink-secondary">
+        <p className={cx("text-ink-secondary", big ? "text-base" : "text-sm")}>
           {pct === 100
             ? "Perfect score — next level unlocked."
             : passed
@@ -856,13 +976,16 @@ function LevelComplete({
         </p>
       </div>
 
-      <div className="space-y-2">
+      <div className={cx(big ? "space-y-2.5" : "space-y-2")}>
         {questions.map((q, i) => {
           const got = answers[i] === q.correctIndex;
           return (
-            <div key={q.id} className="flex items-start gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-3 py-2">
+            <div
+              key={q.id}
+              className={cx("flex items-start gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02]", big ? "px-4 py-3" : "px-3 py-2")}
+            >
               <span className={got ? "text-status-good" : "text-status-critical"}>{got ? "✓" : "✗"}</span>
-              <p className="text-xs leading-relaxed text-ink-secondary">{q.prompt}</p>
+              <p className={cx("leading-relaxed text-ink-secondary", big ? "text-sm" : "text-xs")}>{q.prompt}</p>
             </div>
           );
         })}
@@ -873,7 +996,8 @@ function LevelComplete({
           <button
             onClick={onContinue}
             className={cx(
-              "rounded-lg bg-gradient-to-r px-4 py-2 text-xs font-semibold text-plane hover:opacity-90",
+              "rounded-lg bg-gradient-to-r font-semibold text-plane hover:opacity-90",
+              big ? "px-5 py-2.5 text-sm" : "px-4 py-2 text-xs",
               theme.gradient
             )}
           >
@@ -883,7 +1007,8 @@ function LevelComplete({
           <button
             onClick={onRetry}
             className={cx(
-              "rounded-lg bg-gradient-to-r px-4 py-2 text-xs font-semibold text-plane hover:opacity-90",
+              "rounded-lg bg-gradient-to-r font-semibold text-plane hover:opacity-90",
+              big ? "px-5 py-2.5 text-sm" : "px-4 py-2 text-xs",
               theme.gradient
             )}
           >
@@ -892,7 +1017,10 @@ function LevelComplete({
         )}
         <button
           onClick={onContinue}
-          className="rounded-lg border border-white/10 px-4 py-2 text-xs font-medium text-ink-secondary hover:text-ink-primary"
+          className={cx(
+            "rounded-lg border border-white/10 font-medium text-ink-secondary hover:text-ink-primary",
+            big ? "px-5 py-2.5 text-sm" : "px-4 py-2 text-xs"
+          )}
         >
           Back to path
         </button>
