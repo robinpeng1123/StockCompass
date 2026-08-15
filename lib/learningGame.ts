@@ -439,6 +439,15 @@ function shuffledOptions(rand: () => number, correct: string, distractors: strin
   }
   return { options, correctIndex: options.indexOf(correct) };
 }
+/** Re-shuffles a question's option order (curated questions are all written with the correct answer listed first). */
+function shuffleQuestionOptions(rand: () => number, q: QuizQuestion): QuizQuestion {
+  const order = q.options.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return { ...q, options: order.map((i) => q.options[i]), correctIndex: order.indexOf(q.correctIndex) };
+}
 function fmtMoney(n: number): string {
   return n >= 1000 ? `$${Math.round(n).toLocaleString("en-US")}` : `$${n.toFixed(2)}`;
 }
@@ -692,7 +701,7 @@ export function getLevelQuestions(topic: TopicKey, level: number): QuizQuestion[
   const curatedCount = curated.length > 0 ? Math.ceil(QUESTIONS_PER_LEVEL / 2) : 0;
   for (let i = 0; i < curatedCount; i++) {
     const idx = (level - 1 + i) % curated.length;
-    questions.push(curated[idx]);
+    questions.push(shuffleQuestionOptions(rand, curated[idx]));
   }
   while (questions.length < QUESTIONS_PER_LEVEL) {
     questions.push(pick(rand, generators)(rand));
@@ -717,7 +726,7 @@ export function getPlacementQuestions(topic: TopicKey): QuizQuestion[] {
   const questions: QuizQuestion[] = [];
   for (const q of curated) {
     if (questions.length >= PLACEMENT_QUESTION_COUNT) break;
-    questions.push(q);
+    questions.push(shuffleQuestionOptions(rand, q));
   }
   while (questions.length < PLACEMENT_QUESTION_COUNT) {
     questions.push(pick(rand, generators)(rand));

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import {
   ANIMALS,
   Animal,
@@ -20,6 +20,9 @@ import { Badge } from "@/components/ui/Badge";
 import { cx } from "@/lib/utils";
 
 const STORAGE_KEY = "stockcompass:learninggame:v3";
+
+const COMPASS_EMOJI = "🐓";
+const COMPASS_NAME = "Compass";
 
 type TopicTheme = { gradient: string; glow: string; plants: string[] };
 
@@ -98,6 +101,7 @@ export function LearningGame() {
   const [progress, setProgress] = useState<Progress>(DEFAULT_PROGRESS);
   const [ready, setReady] = useState(false);
   const [screen, setScreen] = useState<Screen>({ view: "animal" });
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     const p = loadProgress();
@@ -183,12 +187,12 @@ export function LearningGame() {
 
   const animal = ANIMALS.find((a) => a.key === progress.animalKey) ?? null;
 
-  if (screen.view === "animal") {
-    return <AnimalSelect onSelect={chooseAnimal} />;
-  }
+  let content: ReactNode;
 
-  if (screen.view === "topics") {
-    return (
+  if (screen.view === "animal") {
+    content = <AnimalSelect onSelect={chooseAnimal} />;
+  } else if (screen.view === "topics") {
+    content = (
       <TopicSelect
         animal={animal}
         unlocked={progress.unlocked}
@@ -196,23 +200,19 @@ export function LearningGame() {
         onChangeAnimal={() => setScreen({ view: "animal" })}
       />
     );
-  }
-
-  if (screen.view === "placementOffer") {
+  } else if (screen.view === "placementOffer") {
     const topic = TOPICS.find((t) => t.key === screen.topic)!;
-    return (
+    content = (
       <PlacementOffer
         topic={topic}
         onTakeTest={() => setScreen({ view: "placementQuiz", topic: screen.topic, qIndex: 0, answers: [] })}
         onSkip={() => skipPlacement(screen.topic)}
       />
     );
-  }
-
-  if (screen.view === "placementQuiz") {
+  } else if (screen.view === "placementQuiz") {
     const topic = TOPICS.find((t) => t.key === screen.topic)!;
     const questions = getPlacementQuestions(screen.topic);
-    return (
+    content = (
       <QuizScreen
         eyebrow={`${topic.title} · Placement test`}
         theme={TOPIC_THEME[topic.key]}
@@ -222,14 +222,12 @@ export function LearningGame() {
         onExit={() => setScreen({ view: "topics" })}
       />
     );
-  }
-
-  if (screen.view === "placementResult") {
+  } else if (screen.view === "placementResult") {
     const topic = TOPICS.find((t) => t.key === screen.topic)!;
     const questions = getPlacementQuestions(screen.topic);
     const correct = screen.answers.filter((a, i) => a === questions[i].correctIndex).length;
     const level = placementLevelFromScore(correct, questions.length, topic.totalLevels);
-    return (
+    content = (
       <PlacementResult
         topic={topic}
         animal={animal}
@@ -239,11 +237,9 @@ export function LearningGame() {
         onContinue={() => setScreen({ view: "path", topic: screen.topic })}
       />
     );
-  }
-
-  if (screen.view === "path") {
+  } else if (screen.view === "path") {
     const topic = TOPICS.find((t) => t.key === screen.topic)!;
-    return (
+    content = (
       <LevelPath
         topic={topic}
         animal={animal}
@@ -253,12 +249,10 @@ export function LearningGame() {
         onRetakePlacement={() => setScreen({ view: "placementOffer", topic: topic.key })}
       />
     );
-  }
-
-  if (screen.view === "lesson") {
+  } else if (screen.view === "lesson") {
     const topic = TOPICS.find((t) => t.key === screen.topic)!;
     const lesson = getLevelLesson(screen.topic, screen.level);
-    return (
+    content = (
       <LessonScreen
         topic={topic}
         level={screen.level}
@@ -268,12 +262,10 @@ export function LearningGame() {
         onBack={() => setScreen({ view: "path", topic: screen.topic })}
       />
     );
-  }
-
-  if (screen.view === "quiz") {
+  } else if (screen.view === "quiz") {
     const topic = TOPICS.find((t) => t.key === screen.topic)!;
     const questions = getLevelQuestions(screen.topic, screen.level);
-    return (
+    content = (
       <QuizScreen
         eyebrow={`${topic.title} · Level ${screen.level}`}
         theme={TOPIC_THEME[topic.key]}
@@ -283,20 +275,114 @@ export function LearningGame() {
         onExit={() => setScreen({ view: "path", topic: screen.topic })}
       />
     );
+  } else {
+    const topic = TOPICS.find((t) => t.key === screen.topic)!;
+    const questions = getLevelQuestions(screen.topic, screen.level);
+    content = (
+      <LevelComplete
+        topic={topic}
+        level={screen.level}
+        questions={questions}
+        answers={screen.answers}
+        animal={animal}
+        onContinue={() => setScreen({ view: "path", topic: screen.topic })}
+        onRetry={() => setScreen({ view: "quiz", topic: screen.topic, level: screen.level, qIndex: 0, answers: [] })}
+      />
+    );
   }
 
-  const topic = TOPICS.find((t) => t.key === screen.topic)!;
-  const questions = getLevelQuestions(screen.topic, screen.level);
   return (
-    <LevelComplete
-      topic={topic}
-      level={screen.level}
-      questions={questions}
-      answers={screen.answers}
-      animal={animal}
-      onContinue={() => setScreen({ view: "path", topic: screen.topic })}
-      onRetry={() => setScreen({ view: "quiz", topic: screen.topic, level: screen.level, qIndex: 0, answers: [] })}
-    />
+    <GameChrome fullscreen={fullscreen} onToggleFullscreen={() => setFullscreen((v) => !v)}>
+      {content}
+    </GameChrome>
+  );
+}
+
+function GameChrome({
+  fullscreen,
+  onToggleFullscreen,
+  children,
+}: {
+  fullscreen: boolean;
+  onToggleFullscreen: () => void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    if (!fullscreen) return;
+    window.scrollTo(0, 0);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") onToggleFullscreen();
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [fullscreen, onToggleFullscreen]);
+
+  return (
+    <div className={cx(fullscreen && "!mt-0 fixed inset-0 z-50 overflow-y-auto bg-plane")}>
+      <div className={cx("relative isolate overflow-hidden rounded-2xl", fullscreen && "min-h-full px-4 py-6 sm:px-8 sm:py-10")}>
+        <ColorfulBackground />
+        <div className={cx("relative", fullscreen && "mx-auto max-w-2xl")}>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight text-ink-primary">
+              <span className="text-lg">{COMPASS_EMOJI}</span>
+              Compass Learning
+            </div>
+            <button
+              onClick={onToggleFullscreen}
+              className="flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-medium text-ink-secondary hover:text-ink-primary"
+            >
+              {fullscreen ? <IconCollapse /> : <IconExpand />}
+              {fullscreen ? "Exit fullscreen" : "Fullscreen"}
+            </button>
+          </div>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ColorfulBackground() {
+  return (
+    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+      <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-accent-cyan/20 blur-3xl" />
+      <div className="absolute -right-16 top-6 h-64 w-64 rounded-full bg-accent-violet/20 blur-3xl" />
+      <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-amber-400/10 blur-3xl" />
+      <div className="absolute -bottom-20 right-1/4 h-72 w-72 rounded-full bg-rose-500/10 blur-3xl" />
+      <div className="absolute bottom-1/3 left-8 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
+    </div>
+  );
+}
+
+function IconExpand() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M5 2H2v3M9 2h3v3M5 12H2V9M9 12h3V9"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+function IconCollapse() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none">
+      <path
+        d="M2 5h3V2M12 5H9V2M2 9h3v3M12 9H9v3"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
@@ -304,7 +390,14 @@ function AnimalSelect({ onSelect }: { onSelect: (key: string) => void }) {
   return (
     <div className="flex flex-col items-center gap-6 py-8 text-center">
       <div>
-        <h2 className="text-xl font-semibold text-ink-primary">Pick your companion</h2>
+        <div className="flex items-center justify-center gap-2 text-sm text-ink-secondary">
+          <span className="text-2xl">{COMPASS_EMOJI}</span>
+          <span>
+            Hi, I'm <span className="font-semibold text-ink-primary">{COMPASS_NAME}</span> — I'll teach you a bit at
+            a time as you go.
+          </span>
+        </div>
+        <h2 className="mt-3 text-xl font-semibold text-ink-primary">Pick your companion</h2>
         <p className="mt-1 text-sm text-ink-secondary">They'll stick with you through every level.</p>
       </div>
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
@@ -568,6 +661,19 @@ function LessonScreen({
   onBack: () => void;
 }) {
   const theme = TOPIC_THEME[topic.key];
+  const [displayed, setDisplayed] = useState("");
+
+  useEffect(() => {
+    setDisplayed("");
+    let i = 0;
+    const id = setInterval(() => {
+      i += 1;
+      setDisplayed(lesson.body.slice(0, i));
+      if (i >= lesson.body.length) clearInterval(id);
+    }, 16);
+    return () => clearInterval(id);
+  }, [lesson.body]);
+
   return (
     <Card>
       <CardHeader
@@ -580,9 +686,20 @@ function LessonScreen({
         }
       />
       <div className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-        <span className="text-3xl">{animal ? animal.emoji : topic.emoji}</span>
-        <p className="text-sm leading-relaxed text-ink-secondary">{lesson.body}</p>
+        <span className="text-3xl">{COMPASS_EMOJI}</span>
+        <div>
+          <p className="text-xs font-semibold text-ink-muted">{COMPASS_NAME}</p>
+          <p className="mt-1 min-h-[3.5rem] text-sm leading-relaxed text-ink-secondary">
+            {displayed}
+            {displayed.length < lesson.body.length && <span className="animate-pulse">▍</span>}
+          </p>
+        </div>
       </div>
+      {animal && (
+        <p className="mt-2 text-center text-[11px] text-ink-muted">
+          {animal.emoji} {animal.label} is cheering you on
+        </p>
+      )}
       <button
         onClick={onStart}
         className={cx(
