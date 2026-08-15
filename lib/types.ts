@@ -26,11 +26,3 @@ export type Scenario = {
   rangeLowPct: number;
   rangeHighPct: number;
 };
-
-export type GlossaryTerm = {
-  term: string;
-  short: string;
-  detail: string;
-  example: string;
-  relatedTicker: string;
-};

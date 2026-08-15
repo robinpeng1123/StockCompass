@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { Logo } from "@/components/ui/Logo";
+import { getMarketStatus, MarketStatus } from "@/lib/marketHours";
 
 type NavIcon = (props: { active?: boolean }) => ReactNode;
 type NavLink = { href: string; label: string; icon: NavIcon };
@@ -199,6 +200,7 @@ function TopBar() {
   const { data: session, status } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const [marketStatus, setMarketStatus] = useState<MarketStatus | null>(null);
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
@@ -206,6 +208,15 @@ function TopBar() {
     }
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
+  }, []);
+
+  // Computed client-side (after mount, not during SSR) so it always reflects
+  // the viewer's actual current time rather than whatever moment the page
+  // happened to render on the server.
+  useEffect(() => {
+    setMarketStatus(getMarketStatus());
+    const interval = setInterval(() => setMarketStatus(getMarketStatus()), 60_000);
+    return () => clearInterval(interval);
   }, []);
 
   const initials = (session?.user?.name || session?.user?.email || "?")
@@ -222,10 +233,12 @@ function TopBar() {
         <Logo className="h-8 w-8" />
       </div>
       <div className="ml-auto flex items-center gap-3">
-        <div className="hidden items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-ink-secondary sm:flex">
-          <span className="h-1.5 w-1.5 rounded-full bg-status-good" />
-          Markets open · simulated
-        </div>
+        {marketStatus && (
+          <div className="hidden items-center gap-2 rounded-full border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs text-ink-secondary sm:flex">
+            <span className={`h-1.5 w-1.5 rounded-full ${marketStatus.isOpen ? "bg-status-good" : "bg-ink-muted"}`} />
+            {marketStatus.isOpen ? "Markets open" : "Markets closed"}
+          </div>
+        )}
 
         {status === "authenticated" && session?.user ? (
           <div ref={menuRef} className="relative">
