@@ -35,7 +35,10 @@ export const ANIMALS: Animal[] = [
   { key: "cat", label: "Cat", emoji: "🐱" },
 ];
 
+export type Lesson = { title: string; body: string };
+
 const QUESTIONS_PER_LEVEL = 4;
+const PLACEMENT_QUESTION_COUNT = 20;
 
 // ---------------------------------------------------------------------------
 // Curated, hand-written conceptual questions — the fixed core of each topic.
@@ -280,6 +283,141 @@ const DAYTRADING_CURATED: QuizQuestion[] = [
     explanation: "High volume generally means a tighter spread and more liquidity — orders fill closer to the price you see.",
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Lessons — a short teaching card shown before each level's quiz, starting
+// from the fundamentals at level 1 and cycling through a topic's core
+// concepts as the level number climbs.
+// ---------------------------------------------------------------------------
+
+const STOCKS_LESSONS: Lesson[] = [
+  {
+    title: "What is a stock?",
+    body: "When a company sells stock, it's selling small ownership slices of itself. Buy one share and you own a tiny piece of that business — not a loan, not a coupon, an actual (very small) ownership stake.",
+  },
+  {
+    title: "The P/E ratio",
+    body: "Price-to-earnings (P/E) divides a stock's price by its earnings per share. A P/E of 20 means investors are paying $20 for every $1 the company currently earns per share — a rough shorthand for how expensive a stock is relative to what it actually makes.",
+  },
+  {
+    title: "Market capitalization",
+    body: "Market cap = share price × total shares outstanding. It measures a company's total size, not whether it's a good deal — a $3 trillion company and a $300 million one can each be overpriced or a bargain.",
+  },
+  {
+    title: "Diversification",
+    body: "Putting money across many sectors, instead of just one, means a single piece of bad news can't sink your entire portfolio at once. It doesn't guarantee profit — it manages how much any one shock can hurt you.",
+  },
+  {
+    title: "Volatility",
+    body: "Volatility describes how much a price swings, in either direction — not which way it's trending. A highly volatile stock can crash hard or rally hard; the word says nothing about direction, only the size of the moves.",
+  },
+  {
+    title: "Moving averages",
+    body: "A moving average smooths out the daily noise in a price chart by averaging recent closes, making the underlying trend — up, down, or flat — easier to spot.",
+  },
+  {
+    title: "Beta",
+    body: "Beta compares a stock's swings to the overall market's. A beta above 1 means bigger moves than the market in both directions; below 1 means calmer moves.",
+  },
+  {
+    title: "Dollar-cost averaging",
+    body: "Investing a fixed dollar amount on a set schedule — rather than trying to time the market — naturally buys more shares when prices are low and fewer when they're high, smoothing your average entry price over time.",
+  },
+];
+
+const CRYPTO_LESSONS: Lesson[] = [
+  {
+    title: "What is a blockchain?",
+    body: "A blockchain is a public transaction ledger kept in sync across many independent computers, instead of one company's private database. That's what lets crypto transactions be verified without a bank in the middle.",
+  },
+  {
+    title: "Why crypto swings harder",
+    body: "Most cryptocurrencies trade in smaller, thinner markets than mega-cap stocks, so the same size trade moves the price more. That's a big reason crypto often looks more volatile day to day.",
+  },
+  {
+    title: "Stablecoins",
+    body: "A stablecoin is designed to hold a steady value, usually pegged 1:1 to the US dollar, giving holders a way to sit out crypto's usual volatility without leaving the crypto ecosystem.",
+  },
+  {
+    title: "Custody: exchange vs. wallet",
+    body: "Keep crypto on an exchange and you're trusting that company to hold it safely for you. Move it to your own private wallet and you alone control the keys — with the added responsibility that comes with that.",
+  },
+  {
+    title: "Why crypto trades 24/7",
+    body: "There's no single centralized exchange with opening and closing hours — crypto runs on a decentralized, global network, so it never really \"closes\" the way stock markets do.",
+  },
+  {
+    title: "A risk stocks don't share",
+    body: "US brokerages carry institutional protections (like SIPC) if the firm itself fails. Most crypto platforms don't offer anything comparable if the platform is hacked or goes under.",
+  },
+];
+
+const DAYTRADING_LESSONS: Lesson[] = [
+  {
+    title: "What is a day trade?",
+    body: "A day trade is opening and closing the same position within a single trading session — buying and selling (or shorting and covering) before the closing bell.",
+  },
+  {
+    title: "The Pattern Day Trader rule",
+    body: "US regulators require margin accounts under $25,000 that make 4+ day trades in 5 business days to meet extra requirements — a rule aimed at limiting how much small accounts can over-trade.",
+  },
+  {
+    title: "Why day trading is risky",
+    body: "Frequent trading racks up costs and compounds mistakes fast. Studies of retail day-trading accounts consistently find most lose money once fees and errors are counted.",
+  },
+  {
+    title: "Stop-loss orders",
+    body: "A stop-loss automatically sells a position once it falls to a price you set, capping — but never eliminating — how much further downside you're exposed to.",
+  },
+  {
+    title: "Liquidity matters",
+    body: "Heavily-traded stocks tend to have tighter bid-ask spreads, so orders fill closer to the price you actually expected. Thinly-traded stocks can cost you more just in the spread.",
+  },
+];
+
+const CANDLESTICK_LESSONS: Lesson[] = [
+  {
+    title: "Anatomy of a candle",
+    body: "Each candle shows one session's open, high, low, and close. The thick \"body\" spans open to close; the thin \"wicks\" above and below show the full high-low range. Green usually means it closed higher than it opened; red means it closed lower.",
+  },
+  {
+    title: "Bullish candle",
+    body: "A green body means buyers won the session — price closed higher than it opened.",
+  },
+  {
+    title: "Bearish candle",
+    body: "A red body means sellers won the session — price closed lower than it opened.",
+  },
+  {
+    title: "Hammer",
+    body: "A small body near the top with a long lower wick: sellers pushed price down hard intraday, but buyers stepped in and dragged it back up before the close — often read as a bullish reversal sign.",
+  },
+  {
+    title: "Shooting star",
+    body: "A small body near the bottom with a long upper wick: buyers pushed price up intraday, but sellers overwhelmed the move — often read bearishly.",
+  },
+  {
+    title: "Doji",
+    body: "Open and close land almost exactly together despite wicks on both sides — a tug-of-war that ended in a draw, often signaling indecision.",
+  },
+  {
+    title: "Bullish engulfing",
+    body: "A red candle followed by a larger green candle whose body fully covers it — often watched as buyers overwhelming the prior selling pressure.",
+  },
+];
+
+const LESSON_BANKS: Record<TopicKey, Lesson[]> = {
+  stocks: STOCKS_LESSONS,
+  crypto: CRYPTO_LESSONS,
+  daytrading: DAYTRADING_LESSONS,
+  candlesticks: CANDLESTICK_LESSONS,
+};
+
+/** The teaching card shown before a level's quiz — cycles through a topic's core concepts, starting from the basics at level 1. */
+export function getLevelLesson(topic: TopicKey, level: number): Lesson {
+  const bank = LESSON_BANKS[topic];
+  return bank[(level - 1) % bank.length];
+}
 
 // ---------------------------------------------------------------------------
 // Generators — deterministic given a seeded RNG, so a level's questions are
@@ -560,4 +698,35 @@ export function getLevelQuestions(topic: TopicKey, level: number): QuizQuestion[
     questions.push(pick(rand, generators)(rand));
   }
   return questions;
+}
+
+/**
+ * A 20-question placement test for a topic — every curated concept question
+ * once (shuffled), then generated questions filling the rest, all seeded on
+ * the topic alone so the test is stable if retaken. Used to place a new
+ * learner at a starting level instead of always starting at level 1.
+ */
+export function getPlacementQuestions(topic: TopicKey): QuizQuestion[] {
+  const rand = mulberry32(seedFromString(`placement:${topic}`));
+  const curated = [...curatedFor(topic)];
+  for (let i = curated.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [curated[i], curated[j]] = [curated[j], curated[i]];
+  }
+  const generators = generatorsFor(topic);
+  const questions: QuizQuestion[] = [];
+  for (const q of curated) {
+    if (questions.length >= PLACEMENT_QUESTION_COUNT) break;
+    questions.push(q);
+  }
+  while (questions.length < PLACEMENT_QUESTION_COUNT) {
+    questions.push(pick(rand, generators)(rand));
+  }
+  return questions;
+}
+
+/** Maps a placement-test score to a starting level, scaled linearly across the topic's level range. */
+export function placementLevelFromScore(correct: number, total: number, totalLevels: number): number {
+  const pct = total > 0 ? correct / total : 0;
+  return Math.max(1, Math.min(totalLevels, Math.round(1 + pct * (totalLevels - 1))));
 }
