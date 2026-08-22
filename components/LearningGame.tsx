@@ -1,6 +1,7 @@
 "use client";
 
 import { ReactNode, useEffect, useState } from "react";
+import Image from "next/image";
 import {
   ANIMALS,
   Animal,
@@ -303,8 +304,10 @@ export function LearningGame() {
     );
   }
 
+  const scene = screen.view === "lesson" ? "desk" : "city";
+
   return (
-    <GameChrome fullscreen={fullscreen} onToggleFullscreen={() => setFullscreen((v) => !v)}>
+    <GameChrome fullscreen={fullscreen} onToggleFullscreen={() => setFullscreen((v) => !v)} scene={scene}>
       {content}
     </GameChrome>
   );
@@ -313,10 +316,12 @@ export function LearningGame() {
 function GameChrome({
   fullscreen,
   onToggleFullscreen,
+  scene,
   children,
 }: {
   fullscreen: boolean;
   onToggleFullscreen: () => void;
+  scene: "city" | "desk";
   children: ReactNode;
 }) {
   useEffect(() => {
@@ -337,7 +342,7 @@ function GameChrome({
   return (
     <div className={cx(fullscreen && "!mt-0 fixed inset-0 z-50 overflow-y-auto bg-plane")}>
       <div className={cx("relative isolate overflow-hidden rounded-2xl", fullscreen && "min-h-full px-4 py-6 sm:px-10 sm:py-10")}>
-        <ColorfulBackground />
+        <SceneBackground variant={scene} />
         <div className={cx("relative", fullscreen && "mx-auto max-w-4xl")}>
           <div className="mb-3 flex items-center justify-between">
             <div
@@ -367,14 +372,21 @@ function GameChrome({
   );
 }
 
-function ColorfulBackground() {
+function SceneBackground({ variant }: { variant: "city" | "desk" }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
-      <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-accent-cyan/20 blur-3xl" />
-      <div className="absolute -right-16 top-6 h-64 w-64 rounded-full bg-accent-violet/20 blur-3xl" />
+      <Image
+        src={variant === "desk" ? "/learn/desk-scene.png" : "/learn/city-map.png"}
+        alt=""
+        fill
+        sizes="100vw"
+        className="object-cover opacity-[0.22]"
+        priority={false}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-plane/70 via-plane/60 to-plane/80" />
+      <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-accent-cyan/10 blur-3xl" />
+      <div className="absolute -right-16 top-6 h-64 w-64 rounded-full bg-accent-violet/10 blur-3xl" />
       <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-amber-400/10 blur-3xl" />
-      <div className="absolute -bottom-20 right-1/4 h-72 w-72 rounded-full bg-rose-500/10 blur-3xl" />
-      <div className="absolute bottom-1/3 left-8 h-56 w-56 rounded-full bg-emerald-400/10 blur-3xl" />
     </div>
   );
 }
