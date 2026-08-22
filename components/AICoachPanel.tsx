@@ -11,7 +11,15 @@ import { TabCarousel } from "@/components/ui/TabCarousel";
  * fetch or AI call involved, so there's nothing here that can rate-limit,
  * time out, or need a loading state.
  */
-export function AICoachPanel({ stock, scenarios }: { stock: Stock; scenarios: Scenario[] }) {
+export function AICoachPanel({
+  stock,
+  scenarios,
+  dailyVolPct,
+}: {
+  stock: Stock;
+  scenarios: Scenario[];
+  dailyVolPct: number;
+}) {
   return (
     <div className="space-y-4">
       <TabCarousel
@@ -24,7 +32,7 @@ export function AICoachPanel({ stock, scenarios }: { stock: Stock; scenarios: Sc
             desc: "Bull/Neutral/Bear odds from the ML model",
             color: "#0ca30c",
             emoji: "📈",
-            content: <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} price={stock.price} volatility={stock.volatility} />,
+            content: <ScenarioSimulator ticker={stock.ticker} scenarios={scenarios} price={stock.price} dailyVolPct={dailyVolPct} />,
           },
           {
             key: "daysim",
@@ -32,7 +40,7 @@ export function AICoachPanel({ stock, scenarios }: { stock: Stock; scenarios: Sc
             desc: "A simulated trading day, tick by tick",
             color: "#8b6bf2",
             emoji: "🕹️",
-            content: <DayTradingSim ticker={stock.ticker} price={stock.price} volatility={stock.volatility} scenarios={scenarios} />,
+            content: <DayTradingSim ticker={stock.ticker} price={stock.price} dailyVolPct={dailyVolPct} scenarios={scenarios} />,
           },
         ]}
       />

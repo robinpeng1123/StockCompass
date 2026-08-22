@@ -25,13 +25,14 @@ export type DayTradingSimResult = {
 export function buildDayTradingSim({
   ticker,
   currentPrice,
-  volatilityScore,
+  dailyVolPct,
   neutralMidpointPct,
   now = new Date(),
 }: {
   ticker: string;
   currentPrice: number;
-  volatilityScore: number;
+  /** The model's own measured daily volatility (real %) — see getDailyVolatilityPct. */
+  dailyVolPct: number;
   neutralMidpointPct: number;
   now?: Date;
 }): DayTradingSimResult {
@@ -63,8 +64,8 @@ export function buildDayTradingSim({
   if (hourLabels[hourLabels.length - 1] !== formatMinutes(CLOSE_MIN)) hourLabels.push(formatMinutes(CLOSE_MIN));
 
   const steps = hourLabels.length - 1;
-  const dailyVolPct = Math.min(5, Math.max(0.3, volatilityScore / 20));
-  const hourlyVolPct = dailyVolPct / Math.sqrt(6.5); // volatility scales with sqrt(time)
+  const clampedDailyVolPct = Math.min(8, Math.max(0.15, dailyVolPct));
+  const hourlyVolPct = clampedDailyVolPct / Math.sqrt(6.5); // volatility scales with sqrt(time)
   const dailyDriftPct = neutralMidpointPct / 21; // ~21 trading days per month
   const endPrice = currentPrice * (1 + dailyDriftPct / 100);
 

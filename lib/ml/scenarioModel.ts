@@ -168,6 +168,22 @@ export function predictScenarios(closes: number[]): Scenario[] {
   }) as Scenario[];
 }
 
+const FALLBACK_DAILY_VOL_PCT = 1.5;
+
+/**
+ * The model's own measured daily volatility (stdev of daily returns over the
+ * trained window, as a real percentage) for this stock's recent closes —
+ * used to calibrate how jagged/wide a projected price path should look.
+ * This is the same `vol_20d` feature the model itself was trained on, not a
+ * derived 0-100 score reinterpreted as a percentage, so a chart built from
+ * it can't drift away from what the model actually measured.
+ */
+export function getDailyVolatilityPct(closes: number[]): number {
+  const window = closes.slice(-W.windowDays);
+  if (window.length < MIN_WINDOW) return FALLBACK_DAILY_VOL_PCT;
+  return computeFeatures(window).vol_20d;
+}
+
 export type MLRiskScores = {
   risk: number;
   momentum: number;

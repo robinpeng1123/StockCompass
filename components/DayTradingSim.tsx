@@ -9,12 +9,13 @@ import { buildDayTradingSim } from "@/lib/dayTradingSim";
 export function DayTradingSim({
   ticker,
   price,
-  volatility,
+  dailyVolPct,
   scenarios,
 }: {
   ticker: string;
   price: number;
-  volatility: number;
+  /** The model's own measured daily volatility (real %) — see getDailyVolatilityPct. */
+  dailyVolPct: number;
   scenarios: Scenario[];
 }) {
   const id = useId();
@@ -24,8 +25,8 @@ export function DayTradingSim({
   const sim = useMemo(() => {
     const neutral = scenarios.find((s) => s.label === "Neutral");
     const neutralMidpointPct = neutral ? (neutral.rangeLowPct + neutral.rangeHighPct) / 2 : 0;
-    return buildDayTradingSim({ ticker, currentPrice: price, volatilityScore: volatility, neutralMidpointPct });
-  }, [ticker, price, volatility, scenarios]);
+    return buildDayTradingSim({ ticker, currentPrice: price, dailyVolPct, neutralMidpointPct });
+  }, [ticker, price, dailyVolPct, scenarios]);
 
   const { checkpoints, sessionLabel } = sim;
   const prices = checkpoints.map((c) => c.price);

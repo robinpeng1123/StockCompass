@@ -32,11 +32,19 @@ export function generateProjectionPath({
   const wEnd = walk[n];
   const bridge = walk.map((w, i) => w - (i / n) * wEnd);
 
-  const JAGGEDNESS = 2.4;
+  const JAGGEDNESS = 1.8;
   const stdevDecimal = Math.max(0.008, dailyVolatilityPct / 100);
   const scale = startPrice * stdevDecimal * JAGGEDNESS;
+  // Hard safety cap — a 3-sigma-equivalent bound so no seed, however
+  // unlucky, can make an intermediate point wander wildly past what the
+  // input volatility actually justifies.
+  const maxNoise = scale * 3;
 
-  const path = bridge.map((b, i) => startPrice + (i / n) * (endPrice - startPrice) + b * scale);
+  const path = bridge.map((b, i) => {
+    const straight = startPrice + (i / n) * (endPrice - startPrice);
+    const noise = Math.max(-maxNoise, Math.min(maxNoise, b * scale));
+    return straight + noise;
+  });
   path[0] = startPrice;
   path[n] = endPrice;
   return path;

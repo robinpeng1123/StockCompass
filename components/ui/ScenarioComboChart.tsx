@@ -24,12 +24,13 @@ export function ScenarioComboChart({
   ticker,
   scenarios,
   price,
-  volatilityScore,
+  dailyVolPct,
 }: {
   ticker: string;
   scenarios: Scenario[];
   price: number;
-  volatilityScore: number;
+  /** The model's own measured daily volatility (real %, e.g. 1.4 = 1.4%/day) — see getDailyVolatilityPct. */
+  dailyVolPct: number;
 }) {
   const id = useId();
   const svgRef = useRef<SVGSVGElement>(null);
@@ -52,11 +53,15 @@ export function ScenarioComboChart({
   const weeks = Math.max(3, Math.round(horizonDays / 7));
   const n = weeks;
 
+  // Clamped defensively (real vol_20d for a normal stock is usually 0.5-4%),
+  // then scaled from a daily to a weekly stdev since the path steps here are
+  // weekly — variance grows with time, so weekly stdev = daily stdev * sqrt(7).
+  const clampedDailyVolPct = Math.min(8, Math.max(0.15, dailyVolPct));
+  const weeklyVolPct = clampedDailyVolPct * Math.sqrt(7);
+
   const paths = scenarios.map((s) => {
     const midpointPct = (s.rangeLowPct + s.rangeHighPct) / 2;
     const targetPrice = price * (1 + midpointPct / 100);
-    const dailyVolPct = Math.min(5, Math.max(0.3, volatilityScore / 20));
-    const weeklyVolPct = dailyVolPct * Math.sqrt(7);
     const path = generateProjectionPath({
       ticker: `${ticker}:${s.label}`,
       dateKey,

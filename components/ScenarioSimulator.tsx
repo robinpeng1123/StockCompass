@@ -22,12 +22,13 @@ export function ScenarioSimulator({
   ticker,
   scenarios,
   price,
-  volatility,
+  dailyVolPct,
 }: {
   ticker: string;
   scenarios: Scenario[];
   price: number;
-  volatility: number;
+  /** The model's own measured daily volatility (real %) — see getDailyVolatilityPct. */
+  dailyVolPct: number;
 }) {
   return (
     <Card>
@@ -53,7 +54,7 @@ export function ScenarioSimulator({
       </div>
 
       <div className="mt-5">
-        <ScenarioComboChart ticker={ticker} scenarios={scenarios} price={price} volatilityScore={volatility} />
+        <ScenarioComboChart ticker={ticker} scenarios={scenarios} price={price} dailyVolPct={dailyVolPct} />
       </div>
 
       <div className="mt-5 grid gap-4 sm:grid-cols-3">

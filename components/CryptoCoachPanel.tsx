@@ -14,7 +14,17 @@ import { TabCarousel } from "@/components/ui/TabCarousel";
  * OpenAI prompt is built around company news/earnings/fundamentals, none of
  * which exist for a cryptocurrency in this app's data layer.
  */
-export function CryptoCoachPanel({ crypto, scenarios, risk }: { crypto: Stock; scenarios: Scenario[]; risk: AIRiskOverride }) {
+export function CryptoCoachPanel({
+  crypto,
+  scenarios,
+  risk,
+  dailyVolPct,
+}: {
+  crypto: Stock;
+  scenarios: Scenario[];
+  risk: AIRiskOverride;
+  dailyVolPct: number;
+}) {
   return (
     <div className="space-y-4">
       <TabCarousel
@@ -25,7 +35,7 @@ export function CryptoCoachPanel({ crypto, scenarios, risk }: { crypto: Stock; s
             desc: "Bull/Neutral/Bear odds from the ML model",
             color: "#0ca30c",
             emoji: "📈",
-            content: <ScenarioSimulator ticker={crypto.ticker} scenarios={scenarios} price={crypto.price} volatility={crypto.volatility} />,
+            content: <ScenarioSimulator ticker={crypto.ticker} scenarios={scenarios} price={crypto.price} dailyVolPct={dailyVolPct} />,
           },
           {
             key: "risk",
@@ -41,7 +51,7 @@ export function CryptoCoachPanel({ crypto, scenarios, risk }: { crypto: Stock; s
             desc: "A simulated trading day, tick by tick",
             color: "#8b6bf2",
             emoji: "🕹️",
-            content: <DayTradingSim ticker={crypto.ticker} price={crypto.price} volatility={crypto.volatility} scenarios={scenarios} />,
+            content: <DayTradingSim ticker={crypto.ticker} price={crypto.price} dailyVolPct={dailyVolPct} scenarios={scenarios} />,
           },
         ]}
       />

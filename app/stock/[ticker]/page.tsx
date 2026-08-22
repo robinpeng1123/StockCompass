@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getLiveStock } from "@/lib/liveStock";
-import { predictScenarios } from "@/lib/ml/scenarioModel";
+import { predictScenarios, getDailyVolatilityPct } from "@/lib/ml/scenarioModel";
 import { getCompanyNews, getEarnings, FinnhubError } from "@/lib/finnhub";
 import { formatMarketCap } from "@/lib/utils";
 import { PriceChart } from "@/components/ui/PriceChart";
@@ -33,11 +33,12 @@ export default async function StockDetailPage({ params }: { params: Promise<{ ti
 
   // Pure price-action model, no network call — same as crypto's coach panel.
   const scenarios = predictScenarios(stock.history);
+  const dailyVolPct = getDailyVolatilityPct(stock.history);
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
       <CoachSection>
-        <AICoachPanel stock={stock} scenarios={scenarios} />
+        <AICoachPanel stock={stock} scenarios={scenarios} dailyVolPct={dailyVolPct} />
       </CoachSection>
 
       <Link href="/screener" className="inline-block text-xs text-ink-muted hover:text-ink-primary">
