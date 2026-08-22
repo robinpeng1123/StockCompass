@@ -24,25 +24,13 @@ const STORAGE_KEY = "stockcompass:learninggame:v3";
 const COMPASS_EMOJI = "🐓";
 const COMPASS_NAME = "Compass";
 
-type TopicTheme = { gradient: string; glow: string; plants: string[] };
+type TopicTheme = { gradient: string; glow: string };
 
 const TOPIC_THEME: Record<TopicKey, TopicTheme> = {
-  stocks: { gradient: "from-accent-cyan to-accent-violet", glow: "shadow-glow", plants: ["🌳", "🌿", "🍀", "🌻"] },
-  crypto: {
-    gradient: "from-amber-400 to-orange-500",
-    glow: "shadow-[0_0_24px_rgba(251,191,36,0.35)]",
-    plants: ["🌵", "🪸", "✨", "🌾"],
-  },
-  daytrading: {
-    gradient: "from-pink-500 to-rose-500",
-    glow: "shadow-[0_0_24px_rgba(244,63,94,0.35)]",
-    plants: ["🌴", "🔥", "🌺", "🍁"],
-  },
-  candlesticks: {
-    gradient: "from-emerald-400 to-teal-500",
-    glow: "shadow-[0_0_24px_rgba(52,211,153,0.35)]",
-    plants: ["🌲", "🍃", "🌱", "🍄"],
-  },
+  stocks: { gradient: "from-accent-cyan to-accent-violet", glow: "shadow-glow" },
+  crypto: { gradient: "from-amber-400 to-orange-500", glow: "shadow-[0_0_24px_rgba(251,191,36,0.35)]" },
+  daytrading: { gradient: "from-pink-500 to-rose-500", glow: "shadow-[0_0_24px_rgba(244,63,94,0.35)]" },
+  candlesticks: { gradient: "from-emerald-400 to-teal-500", glow: "shadow-[0_0_24px_rgba(52,211,153,0.35)]" },
 };
 
 const SECTION_ACCENTS = [
@@ -52,6 +40,17 @@ const SECTION_ACCENTS = [
   "border-fuchsia-400/30 bg-fuchsia-400/10 text-fuchsia-300",
   "border-rose-400/30 bg-rose-400/10 text-rose-300",
   "border-violet-400/30 bg-violet-400/10 text-violet-300",
+];
+
+// A rotating palette of "unit" colors for level badges — like Duolingo's
+// per-unit theming, cycling every 5 levels so a long 100-level path reads
+// as a colorful, varied trail rather than one flat color block.
+const TIER_PALETTE = [
+  { gradient: "from-slate-400 to-slate-500", ribbon: "border-slate-400/30 bg-slate-400/15 text-slate-200" },
+  { gradient: "from-emerald-400 to-green-500", ribbon: "border-emerald-400/30 bg-emerald-400/15 text-emerald-200" },
+  { gradient: "from-sky-400 to-blue-500", ribbon: "border-sky-400/30 bg-sky-400/15 text-sky-200" },
+  { gradient: "from-violet-500 to-purple-600", ribbon: "border-violet-400/30 bg-violet-400/15 text-violet-200" },
+  { gradient: "from-amber-400 to-yellow-500", ribbon: "border-amber-400/30 bg-amber-400/15 text-amber-100" },
 ];
 
 type Progress = {
@@ -684,8 +683,7 @@ function LevelPath({
   const sections: number[][] = [];
   for (let i = 0; i < levels.length; i += 10) sections.push(levels.slice(i, i + 10));
 
-  const nodeAmplitude = big ? 66 : 46;
-  const plantDistance = big ? 108 : 78;
+  const nodeAmplitude = big ? 58 : 40;
 
   return (
     <div className="space-y-4">
@@ -706,45 +704,62 @@ function LevelPath({
         </button>
       </div>
 
+      {/* Level 1 sits at the top; higher levels follow going down the page — scroll to reach them. */}
       <div className={cx("glass-panel overflow-y-auto p-6", big ? "max-h-[70vh]" : "max-h-[560px]")}>
         {sections.map((section, sIdx) => {
           const accent = SECTION_ACCENTS[sIdx % SECTION_ACCENTS.length];
           return (
-            <div key={sIdx} className="mb-6 last:mb-0">
-              <div className="mb-4 flex justify-center">
+            <div key={sIdx} className="mb-8 last:mb-0">
+              <div className="mb-5 flex justify-center">
                 <span className={cx("rounded-full border px-3 py-1 text-[11px] font-semibold uppercase tracking-wider", accent)}>
                   Levels {section[0]}–{section[section.length - 1]}
                 </span>
               </div>
-              <div className={cx("flex flex-col items-center", big ? "gap-4" : "gap-3")}>
+              <div className={cx("flex flex-col items-center", big ? "gap-6" : "gap-4")}>
                 {section.map((level) => {
                   const state = level < unlockedLevel ? "done" : level === unlockedLevel ? "current" : "locked";
                   const offset = Math.round(Math.sin(level * 0.9) * nodeAmplitude);
-                  const plantSide = offset >= 0 ? -1 : 1;
-                  const plant = theme.plants[level % theme.plants.length];
+                  const tier = TIER_PALETTE[(level - 1) % TIER_PALETTE.length];
+                  const lessonTitle = getLevelLesson(topic.key, level).title;
                   return (
-                    <div key={level} className={cx("relative flex w-full items-center justify-center", big ? "h-20" : "h-16")}>
-                      <span
-                        aria-hidden
-                        className={cx("pointer-events-none absolute select-none opacity-60", big ? "text-3xl" : "text-xl sm:text-2xl")}
-                        style={{ transform: `translateX(${offset + plantSide * plantDistance}px)` }}
-                      >
-                        {plant}
-                      </span>
-                      <button
-                        disabled={state === "locked"}
-                        onClick={() => onSelectLevel(level)}
+                    <div key={level} className="flex w-full justify-center">
+                      <div
+                        className="flex flex-col items-center gap-1.5"
                         style={{ transform: `translateX(${offset}px)` }}
-                        className={cx(
-                          "relative flex shrink-0 items-center justify-center rounded-full border font-semibold transition-transform",
-                          big ? "h-20 w-20 text-lg" : "h-14 w-14 text-sm",
-                          state === "done" && "border-status-good/40 bg-status-good/15 text-status-good hover:scale-105",
-                          state === "current" && cx("scale-110 border-white/20 bg-gradient-to-br text-plane", theme.gradient, theme.glow),
-                          state === "locked" && "border-white/10 bg-white/[0.02] text-ink-muted"
-                        )}
                       >
-                        {state === "done" ? "✓" : state === "locked" ? "🔒" : level}
-                      </button>
+                        <button
+                          disabled={state === "locked"}
+                          onClick={() => onSelectLevel(level)}
+                          className={cx(
+                            "relative flex shrink-0 items-center justify-center rounded-full border-4 border-white/15 font-bold text-white shadow-lg transition-transform",
+                            big ? "h-20 w-20 text-xl" : "h-16 w-16 text-lg",
+                            "bg-gradient-to-br",
+                            state === "current" ? cx(theme.gradient, theme.glow, "scale-110 border-white/30") : tier.gradient,
+                            state === "locked" && "opacity-60 hover:scale-100",
+                            state !== "locked" && "hover:scale-105"
+                          )}
+                        >
+                          {level}
+                          {state === "done" && (
+                            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-status-good text-xs text-white ring-2 ring-surface">
+                              ✓
+                            </span>
+                          )}
+                          {state === "locked" && (
+                            <span className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-xs ring-2 ring-surface">
+                              🔒
+                            </span>
+                          )}
+                        </button>
+                        <span
+                          className={cx(
+                            "max-w-[8.5rem] rounded-full border px-2.5 py-1 text-center text-[10px] font-semibold leading-tight sm:max-w-[10rem]",
+                            tier.ribbon
+                          )}
+                        >
+                          {lessonTitle}
+                        </span>
+                      </div>
                     </div>
                   );
                 })}
