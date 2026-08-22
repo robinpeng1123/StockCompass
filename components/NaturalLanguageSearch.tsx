@@ -37,7 +37,7 @@ export function NaturalLanguageSearch({ compact = false }: { compact?: boolean }
 
       let rateLimited = false;
       if (symbolMatches.length > 0) {
-        const top = symbolMatches.slice(0, 6);
+        const top = symbolMatches.slice(0, 12);
         const responses = await Promise.all(
           top.map((m) =>
             fetch(`/api/stock/${m.symbol}`)
