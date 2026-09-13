@@ -39,6 +39,10 @@ const POSITIVE_PHRASES: Array<[string, number]> = [
   ["expands into", 0.3],
   ["approval", 0.35],
   ["approved", 0.3],
+  ["broadening leadership", 0.4],
+  ["broad-based rally", 0.5],
+  ["risk-on", 0.35],
+  ["record high", 0.5],
 ];
 
 const NEGATIVE_PHRASES: Array<[string, number]> = [
@@ -76,6 +80,17 @@ const NEGATIVE_PHRASES: Array<[string, number]> = [
   ["delisted", -0.7],
   ["resigns", -0.35],
   ["ceo resigns", -0.5],
+  ["narrowing leadership", -0.4],
+  ["narrow leadership", -0.4],
+  ["reduce capex", -0.6],
+  ["reduces capex", -0.6],
+  ["cut capex", -0.6],
+  ["cuts capex", -0.6],
+  ["capex cuts", -0.6],
+  ["cutting ai spending", -0.6],
+  ["reduce ai infrastructure spending", -0.6],
+  ["risk-off", -0.35],
+  ["broad-based selloff", -0.6],
 ];
 
 const ALL_PHRASES = [...POSITIVE_PHRASES, ...NEGATIVE_PHRASES];
