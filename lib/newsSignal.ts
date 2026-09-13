@@ -1,52 +1,7 @@
 import { Scenario } from "./types";
-import { scoreNewsSentiment } from "./newsSentiment";
 
-export type NewsEntry = { id: string; text: string; score: number; addedAt: number };
-
-const STORAGE_KEY = "stockcompass:newssignal:v1";
-
-type Store = Record<string, NewsEntry[]>;
-
-function loadStore(): Store {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-function saveStore(store: Store) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(store));
-}
-
-export function getNewsEntries(ticker: string): NewsEntry[] {
-  return loadStore()[ticker] ?? [];
-}
-
-export function addNewsEntry(ticker: string, text: string): NewsEntry {
-  const trimmed = text.trim();
-  const { score } = scoreNewsSentiment(trimmed);
-  const entry: NewsEntry = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    text: trimmed,
-    score,
-    addedAt: Date.now(),
-  };
-  const store = loadStore();
-  store[ticker] = [...(store[ticker] ?? []), entry];
-  saveStore(store);
-  return entry;
-}
-
-export function removeNewsEntry(ticker: string, id: string): void {
-  const store = loadStore();
-  store[ticker] = (store[ticker] ?? []).filter((e) => e.id !== id);
-  saveStore(store);
-}
+/** An admin-curated news signal for a ticker, as returned by /api/news-signal/[ticker]. */
+export type NewsEntry = { id: string; text: string; score: number; createdAt: string };
 
 export function averageSentiment(entries: NewsEntry[]): number {
   if (entries.length === 0) return 0;

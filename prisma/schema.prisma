@@ -71,3 +71,18 @@ model Holding {
 
   @@unique([userId, ticker])
 }
+
+// An admin-curated news snippet for a ticker, scored by the keyword
+// sentiment reader and blended into that ticker's ML prediction for every
+// visitor — writable only by the admin account (checked in the API route
+// by email, not by a relation here), but readable by anyone so the effect
+// is shared rather than per-browser.
+model NewsSignal {
+  id        String   @id @default(cuid())
+  ticker    String
+  text      String
+  score     Float
+  createdAt DateTime @default(now())
+
+  @@index([ticker])
+}

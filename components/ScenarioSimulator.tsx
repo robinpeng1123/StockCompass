@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { Scenario } from "@/lib/types";
 import { Card, CardHeader } from "./ui/Card";
 import { Badge } from "./ui/Badge";
 import { signed } from "@/lib/utils";
 import { ScenarioComboChart } from "./ui/ScenarioComboChart";
-import { NewsEntry, addNewsEntry, averageSentiment, applyNewsSignal, getNewsEntries, removeNewsEntry } from "@/lib/newsSignal";
+import { NewsEntry, averageSentiment, applyNewsSignal } from "@/lib/newsSignal";
+import { isAdminEmail } from "@/lib/admin";
 
 const SCENARIO_COLOR: Record<Scenario["label"], string> = {
   Bullish: "#0ca30c",
@@ -32,27 +34,64 @@ export function ScenarioSimulator({
   /** The model's own measured daily volatility (real %) — see getDailyVolatilityPct. */
   dailyVolPct: number;
 }) {
+  const { data: session } = useSession();
+  const isAdmin = isAdminEmail(session?.user?.email);
+
   const [entries, setEntries] = useState<NewsEntry[]>([]);
   const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function loadEntries() {
+    try {
+      const res = await fetch(`/api/news-signal/${encodeURIComponent(ticker)}`);
+      const data = await res.json();
+      setEntries(Array.isArray(data.entries) ? data.entries : []);
+    } catch {
+      setEntries([]);
+    }
+  }
 
   useEffect(() => {
-    setEntries(getNewsEntries(ticker));
     setDraft("");
+    setError(null);
+    loadEntries();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ticker]);
 
   const sentiment = averageSentiment(entries);
   const effective = applyNewsSignal(scenarios, sentiment);
 
-  function submitNews() {
-    if (!draft.trim()) return;
-    addNewsEntry(ticker, draft);
-    setEntries(getNewsEntries(ticker));
-    setDraft("");
+  async function submitNews() {
+    if (!draft.trim() || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/news-signal/${encodeURIComponent(ticker)}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: draft }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't add that signal.");
+        return;
+      }
+      setDraft("");
+      await loadEntries();
+    } finally {
+      setBusy(false);
+    }
   }
 
-  function deleteNews(id: string) {
-    removeNewsEntry(ticker, id);
-    setEntries(getNewsEntries(ticker));
+  async function deleteNews(id: string) {
+    setBusy(true);
+    try {
+      await fetch(`/api/news-signal/${encodeURIComponent(ticker)}?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      await loadEntries();
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -107,14 +146,19 @@ export function ScenarioSimulator({
         scenario, not a guarantee.
       </p>
 
-      <NewsSignalSection
-        entries={entries}
-        draft={draft}
-        onDraftChange={setDraft}
-        onSubmit={submitNews}
-        onDelete={deleteNews}
-        sentiment={sentiment}
-      />
+      {(isAdmin || entries.length > 0) && (
+        <NewsSignalSection
+          entries={entries}
+          draft={draft}
+          onDraftChange={setDraft}
+          onSubmit={submitNews}
+          onDelete={deleteNews}
+          sentiment={sentiment}
+          isAdmin={isAdmin}
+          busy={busy}
+          error={error}
+        />
+      )}
     </Card>
   );
 }
@@ -126,6 +170,9 @@ function NewsSignalSection({
   onSubmit,
   onDelete,
   sentiment,
+  isAdmin,
+  busy,
+  error,
 }: {
   entries: NewsEntry[];
   draft: string;
@@ -133,35 +180,41 @@ function NewsSignalSection({
   onSubmit: () => void;
   onDelete: (id: string) => void;
   sentiment: number;
+  isAdmin: boolean;
+  busy: boolean;
+  error: string | null;
 }) {
   return (
     <div className="mt-5 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Your news signal</div>
+        <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">News signal</div>
         {entries.length > 0 && <SentimentBadge score={sentiment} />}
       </div>
       <p className="mt-1.5 text-[11px] leading-relaxed text-ink-muted">
-        Paste a headline or article about this stock. A transparent keyword scorer reads it and nudges the odds and
-        ranges above toward or away from Bullish/Bearish — it's your own read, layered on top of the model above,
-        not the model itself learning or retraining (it's trained offline on price history only).
+        {isAdmin
+          ? "Paste a headline or article about this stock. A transparent keyword scorer reads it and nudges the odds and ranges above toward or away from Bullish/Bearish for every visitor — it's a curated signal layered on top of the model above, not the model itself learning or retraining (it's trained offline on price history only)."
+          : "A news signal curated for this stock, blended into the odds and ranges above — layered on top of the model's own price-action-based prediction, not the model itself retraining."}
       </p>
 
-      <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-        <textarea
-          value={draft}
-          onChange={(e) => onDraftChange(e.target.value)}
-          placeholder='e.g. "Company beats earnings estimates and raises full-year guidance"'
-          rows={2}
-          className="flex-1 resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-ink-primary placeholder:text-ink-muted focus:border-accent-cyan/50 focus:outline-none"
-        />
-        <button
-          onClick={onSubmit}
-          disabled={!draft.trim()}
-          className="shrink-0 self-end rounded-lg bg-gradient-to-r from-accent-cyan to-accent-violet px-4 py-2 text-xs font-semibold text-plane transition-opacity hover:opacity-90 disabled:opacity-40"
-        >
-          Add signal
-        </button>
-      </div>
+      {isAdmin && (
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+          <textarea
+            value={draft}
+            onChange={(e) => onDraftChange(e.target.value)}
+            placeholder='e.g. "Company beats earnings estimates and raises full-year guidance"'
+            rows={2}
+            className="flex-1 resize-none rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-ink-primary placeholder:text-ink-muted focus:border-accent-cyan/50 focus:outline-none"
+          />
+          <button
+            onClick={onSubmit}
+            disabled={!draft.trim() || busy}
+            className="shrink-0 self-end rounded-lg bg-gradient-to-r from-accent-cyan to-accent-violet px-4 py-2 text-xs font-semibold text-plane transition-opacity hover:opacity-90 disabled:opacity-40"
+          >
+            Add signal
+          </button>
+        </div>
+      )}
+      {error && <p className="mt-2 text-[11px] text-status-critical">{error}</p>}
 
       {entries.length > 0 && (
         <div className="mt-3 space-y-1.5">
@@ -169,17 +222,18 @@ function NewsSignalSection({
             <div key={e.id} className="flex items-start justify-between gap-2 rounded-lg border border-white/[0.06] bg-white/[0.02] px-2.5 py-1.5">
               <div className="flex min-w-0 items-start gap-2">
                 <SentimentBadge score={e.score} />
-                <p className="min-w-0 flex-1 truncate text-[11px] text-ink-secondary" title={e.text}>
-                  {e.text}
-                </p>
+                <p className="min-w-0 flex-1 text-[11px] text-ink-secondary">{e.text}</p>
               </div>
-              <button
-                onClick={() => onDelete(e.id)}
-                className="shrink-0 text-[11px] text-ink-muted hover:text-status-critical"
-                aria-label="Remove this news signal"
-              >
-                ✕
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => onDelete(e.id)}
+                  disabled={busy}
+                  className="shrink-0 text-[11px] text-ink-muted hover:text-status-critical disabled:opacity-40"
+                  aria-label="Remove this news signal"
+                >
+                  ✕
+                </button>
+              )}
             </div>
           ))}
         </div>
