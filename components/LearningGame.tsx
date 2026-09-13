@@ -716,7 +716,7 @@ function LevelPath({
       {/* Deliberately much more transparent than the shared .glass-panel (bg-surface/80) so the ambient scene image behind the game shows through here instead of being blocked by a flat panel fill. */}
       <div
         className={cx(
-          "relative overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface/25 p-6 backdrop-blur-md",
+          "relative overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface/25 p-6",
           big ? "max-h-[70vh]" : "max-h-[560px]"
         )}
       >
