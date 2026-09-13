@@ -717,7 +717,13 @@ function LevelPath({
       </div>
 
       {/* Level 1 sits at the top; higher levels follow going down the page — scroll to reach them. */}
-      <div className={cx("glass-panel overflow-y-auto p-6", big ? "max-h-[70vh]" : "max-h-[560px]")}>
+      {/* Deliberately much more transparent than the shared .glass-panel (bg-surface/80) so the ambient scene image behind the game shows through here instead of being blocked by a flat panel fill. */}
+      <div
+        className={cx(
+          "relative overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface/25 p-6 backdrop-blur-md",
+          big ? "max-h-[70vh]" : "max-h-[560px]"
+        )}
+      >
         {sections.map((section, sIdx) => {
           const accent = SECTION_ACCENTS[sIdx % SECTION_ACCENTS.length];
           return (
