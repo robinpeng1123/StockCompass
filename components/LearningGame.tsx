@@ -380,10 +380,10 @@ function SceneBackground({ variant }: { variant: "city" | "desk" }) {
         alt=""
         fill
         sizes="100vw"
-        className="object-cover opacity-[0.22]"
+        className="object-cover opacity-70"
         priority={false}
       />
-      <div className="absolute inset-0 bg-gradient-to-b from-plane/70 via-plane/60 to-plane/80" />
+      <div className="absolute inset-0 bg-gradient-to-b from-plane/35 via-plane/25 to-plane/45" />
       <div className="absolute -left-20 -top-20 h-72 w-72 rounded-full bg-accent-cyan/10 blur-3xl" />
       <div className="absolute -right-16 top-6 h-64 w-64 rounded-full bg-accent-violet/10 blur-3xl" />
       <div className="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-amber-400/10 blur-3xl" />
